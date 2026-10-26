@@ -1,0 +1,439 @@
+/* ========================= TRŽIŠTE UŽIVO — TELEFON ========================= */
+
+html, body { height: 100%; }
+body.player {
+  --accent: #6ee7ff;
+  height: 100dvh;
+  max-width: 620px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background:
+    radial-gradient(600px 420px at 12% -8%, rgba(48, 86, 190, .38), transparent 62%),
+    radial-gradient(520px 380px at 96% 6%, rgba(120, 44, 150, .3), transparent 60%),
+    #060a14;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.kicker { color: var(--muted); }
+.live-dot-small {
+  display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--green); box-shadow: 0 0 10px var(--green);
+  margin-right: 7px; vertical-align: middle;
+}
+
+/* -------------------------------- PRIJAVA -------------------------------- */
+.join-screen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 24px;
+  padding: 28px 22px calc(26px + env(safe-area-inset-bottom));
+}
+.join-logo h1 {
+  font-size: clamp(32px, 9vw, 44px);
+  font-weight: 900;
+  letter-spacing: -.035em;
+  line-height: 1.02;
+  margin: 10px 0 12px;
+}
+.join-logo p { color: var(--muted); font-size: 14px; line-height: 1.5; }
+.join-logo p b { color: var(--text); }
+.join-form { display: flex; flex-direction: column; gap: 9px; }
+.join-form label {
+  font-size: 10px; font-weight: 800; letter-spacing: .18em;
+  text-transform: uppercase; color: var(--muted-2);
+}
+.join-form input {
+  width: 100%;
+  background: rgba(255,255,255,.06);
+  border: 1px solid var(--line-2);
+  border-radius: 14px;
+  padding: 16px 17px;
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--text);
+  outline: none;
+  font-family: inherit;
+  transition: border-color .15s, box-shadow .15s;
+}
+.join-form input::placeholder { color: var(--muted-2); font-weight: 500; }
+.join-form input:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(110,231,255,.14); }
+.btn-big {
+  width: 100%;
+  padding: 18px;
+  font-size: 16px;
+  border-radius: 14px;
+  margin-top: 4px;
+}
+.join-status { min-height: 20px; font-size: 12.5px; color: var(--red); font-weight: 600; }
+.join-status.ok { color: var(--green); }
+.join-foot { font-size: 11.5px; color: var(--muted-2); text-align: center; }
+
+/* --------------------------------- APLIKACIJA ---------------------------- */
+.app { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+
+.app-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 12px 16px 8px;
+}
+.firm-chip {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -.01em;
+}
+.firm-chip .dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--accent);
+  flex: none;
+}
+#myName { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.badge {
+  flex: none;
+  font-size: 8.5px;
+  font-weight: 900;
+  letter-spacing: .14em;
+  padding: 3px 7px;
+  border-radius: 6px;
+  color: var(--gold);
+  background: rgba(255,209,102,.14);
+  border: 1px solid rgba(255,209,102,.42);
+}
+.round-chip {
+  flex: none;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  color: var(--muted);
+  padding: 5px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,.03);
+  white-space: nowrap;
+}
+.timer-badge {
+  flex: none;
+  min-width: 48px;
+  text-align: center;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -.02em;
+  padding: 4px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,.06);
+}
+.timer-badge.low { color: var(--red); border-color: rgba(255,93,115,.5); background: rgba(255,93,115,.1); }
+.timer-badge.paused { color: var(--yellow); }
+
+.stats-row {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  padding: 0 16px 10px;
+}
+.stat {
+  background: rgba(255,255,255,.04);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 6px 4px;
+  text-align: center;
+  min-width: 0;
+}
+.stat b { display: block; font-size: 15px; font-weight: 800; letter-spacing: -.02em; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stat span { font-size: 8.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted-2); }
+
+.stage {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding: 2px 16px 10px;
+  scrollbar-width: thin;
+}
+.stage::-webkit-scrollbar { width: 4px; }
+.stage::-webkit-scrollbar-thumb { background: rgba(255,255,255,.14); border-radius: 4px; }
+
+.app-foot { flex: none; display: flex; align-items: center; gap: 10px; padding: 6px 18px calc(10px + env(safe-area-inset-bottom)); }
+.hint { flex: 1; font-size: 11px; color: var(--muted-2); line-height: 1.3; }
+.conn { font-size: 9px; color: var(--green); transition: color .3s; }
+.conn.offline { color: var(--red); }
+
+/* -------------------------------- ZAJEDNIČKO ----------------------------- */
+.round-head { text-align: center; margin-bottom: 12px; }
+.round-head h2 { font-size: 21px; font-weight: 900; letter-spacing: -.025em; line-height: 1.15; }
+.round-head p { color: var(--muted); font-size: 12.5px; line-height: 1.4; margin-top: 5px; }
+.section-label {
+  font-size: 9.5px; font-weight: 800; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--muted-2); margin: 16px 0 8px;
+}
+.section-label:first-child { margin-top: 0; }
+.muted { color: var(--muted); }
+.note { font-size: 11px; color: var(--muted-2); line-height: 1.45; margin-top: 10px; }
+
+/* --------------------------------- LOBI ---------------------------------- */
+.lobby-wait {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px; text-align: center; padding: 28px 12px;
+}
+.lobby-wait .big-emoji { font-size: 52px; filter: drop-shadow(0 8px 24px rgba(110,231,255,.25)); }
+.lobby-wait h2 { font-size: 22px; font-weight: 900; letter-spacing: -.02em; }
+.lobby-wait p { color: var(--muted); font-size: 13px; line-height: 1.5; max-width: 34ch; }
+.firm-name-big { font-size: 26px; font-weight: 900; color: var(--accent); letter-spacing: -.02em; }
+.live-count { font-size: 11.5px; color: var(--muted); letter-spacing: .06em; }
+.live-count b { font-size: 18px; color: var(--text); margin-right: 4px; }
+
+/* ---------------------------------- TAP ---------------------------------- */
+.tap-zone { display: flex; flex-direction: column; align-items: center; gap: 16px; padding-top: 4px; }
+.tap-btn {
+  position: relative;
+  width: min(64vw, 268px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.3);
+  background:
+    radial-gradient(circle at 34% 28%, rgba(255,255,255,.6), rgba(255,255,255,.04) 46%),
+    var(--accent);
+  box-shadow: 0 20px 54px rgba(0,0,0,.5), inset 0 -16px 34px rgba(0,0,0,.28), 0 0 0 12px rgba(255,255,255,.035);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: #07101f;
+  font-family: inherit;
+  font-weight: 900;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform .07s ease, box-shadow .15s ease;
+}
+.tap-btn:active { transform: scale(.955); box-shadow: 0 8px 24px rgba(0,0,0,.45), inset 0 -8px 20px rgba(0,0,0,.3), 0 0 0 16px rgba(255,255,255,.05); }
+.tap-num { font-size: clamp(46px, 15vw, 64px); line-height: 1; letter-spacing: -.05em; font-variant-numeric: tabular-nums; }
+.tap-label { font-size: 10px; font-weight: 800; letter-spacing: .24em; text-transform: uppercase; opacity: .65; }
+.tap-btn.pulse { animation: tapPulse .18s ease; }
+@keyframes tapPulse { 0% { transform: scale(.955); } 100% { transform: scale(1); } }
+.tap-share { font-size: 13px; color: var(--muted); }
+.tap-share b { color: var(--text); font-weight: 800; }
+.tap-sub { font-size: 11.5px; color: var(--muted-2); text-align: center; max-width: 30ch; line-height: 1.4; }
+
+/* -------------------------------- IZBOR ---------------------------------- */
+.choice-list { display: flex; flex-direction: column; gap: 9px; }
+.choice-card {
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  color: var(--text);
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,.045);
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: border-color .15s, background .15s, transform .1s, box-shadow .15s;
+  display: block;
+}
+.choice-card:active { transform: scale(.99); }
+.choice-card.selected {
+  border-color: var(--accent);
+  background: rgba(255,255,255,.085);
+  box-shadow: 0 0 0 1px var(--accent), 0 12px 34px rgba(0,0,0,.3);
+}
+.choice-card.disabled { opacity: .38; pointer-events: none; }
+.choice-top { display: flex; align-items: center; gap: 8px; }
+.choice-name { flex: 1; font-size: 15.5px; font-weight: 800; letter-spacing: -.01em; }
+.choice-sign { font-size: 14px; color: var(--accent); font-weight: 900; }
+.choice-cost { font-size: 11.5px; font-weight: 800; color: var(--muted); white-space: nowrap; }
+.choice-check { color: var(--accent); font-size: 15px; font-weight: 900; }
+.choice-desc { color: var(--muted); font-size: 12px; line-height: 1.38; margin-top: 5px; }
+.choice-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+.pill {
+  font-size: 9.5px; font-weight: 700; padding: 3px 8px; border-radius: 999px;
+  background: rgba(255,255,255,.06); border: 1px solid var(--line); color: var(--muted);
+  white-space: nowrap;
+}
+.pill.good { color: var(--green); border-color: rgba(53,224,161,.35); background: rgba(53,224,161,.08); }
+.pill.bad { color: var(--red); border-color: rgba(255,93,115,.35); background: rgba(255,93,115,.08); }
+.pill.warn { color: var(--yellow); border-color: rgba(255,209,102,.35); background: rgba(255,209,102,.08); }
+
+/* -------------------------------- SPAJANJA ------------------------------- */
+.group-panel {
+  border: 1px dashed var(--line-2);
+  border-radius: 13px;
+  padding: 10px 12px;
+  background: rgba(255,255,255,.03);
+}
+.group-panel .gp-name { font-size: 14.5px; font-weight: 800; }
+.group-panel .gp-meta { font-size: 11px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+.offer-card {
+  border: 1px solid rgba(110,231,255,.42);
+  background: linear-gradient(180deg, rgba(110,231,255,.11), rgba(110,231,255,.03));
+  border-radius: 14px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-bottom: 9px;
+}
+.offer-card.open-offer { border-color: rgba(255,209,102,.45); background: linear-gradient(180deg, rgba(255,209,102,.12), rgba(255,209,102,.03)); }
+.offer-title { font-size: 13.5px; font-weight: 800; line-height: 1.3; }
+.offer-meta { font-size: 10.5px; color: var(--muted); }
+.offer-actions { display: flex; gap: 8px; }
+.offer-actions .btn { flex: 1; padding: 12px 8px; font-size: 12px; border-radius: 10px; }
+.btn-accept { background: linear-gradient(180deg, #7af0c6, #2fd39a); color: #05251b; border-color: transparent; font-weight: 900; }
+.btn-reject { background: rgba(255,255,255,.06); }
+.merge-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 10px;
+  border-radius: 12px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid var(--line);
+  margin-bottom: 7px;
+}
+.mr-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.mr-main { flex: 1; min-width: 0; }
+.mr-name { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mr-meta { font-size: 10px; color: var(--muted-2); margin-top: 2px; }
+.merge-row .btn { padding: 9px 12px; font-size: 10.5px; border-radius: 9px; flex: none; }
+.btn-open-offer {
+  width: 100%;
+  padding: 15px;
+  border-radius: 13px;
+  font-size: 13.5px;
+  font-weight: 900;
+  letter-spacing: .02em;
+  border: 1px solid rgba(255,209,102,.5);
+  background: linear-gradient(180deg, rgba(255,209,102,.2), rgba(255,209,102,.06));
+  color: #ffe6ac;
+  cursor: pointer;
+  font-family: inherit;
+  margin-bottom: 4px;
+  transition: transform .1s, background .15s;
+}
+.btn-open-offer:active { transform: scale(.99); }
+.btn-open-offer:disabled { opacity: .4; }
+.cooldown { font-size: 10.5px; color: var(--muted-2); text-align: center; margin-top: 4px; }
+
+/* -------------------------------- GLASANJE ------------------------------- */
+.vote-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,.045);
+  margin-bottom: 8px;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.vote-card:active { transform: scale(.995); }
+.vote-card.voted { border-color: var(--accent); background: rgba(255,255,255,.09); box-shadow: 0 0 0 1px var(--accent); }
+.vote-card .vc-dot { width: 12px; height: 12px; border-radius: 4px; flex: none; }
+.vote-card .vc-main { flex: 1; min-width: 0; }
+.vote-card .vc-name { font-size: 14px; font-weight: 800; }
+.vote-card .vc-meta { font-size: 10.5px; color: var(--muted-2); margin-top: 2px; }
+.vote-card .vc-check { color: var(--accent); font-weight: 900; font-size: 15px; }
+.vote-status { font-size: 11.5px; color: var(--muted); text-align: center; margin-top: 6px; }
+
+/* -------------------------------- REZULTAT ------------------------------- */
+.result-box { display: flex; flex-direction: column; gap: 12px; padding-top: 4px; }
+.result-kicker { font-size: 9.5px; font-weight: 800; letter-spacing: .2em; text-transform: uppercase; color: var(--cyan); }
+.result-big { font-size: clamp(34px, 11vw, 46px); font-weight: 900; letter-spacing: -.04em; line-height: 1; }
+.result-big.up { color: var(--green); }
+.result-big.down { color: var(--red); }
+.result-big.flat { color: var(--muted); }
+.result-sub { font-size: 12px; color: var(--muted); }
+.result-lines { list-style: none; padding: 0; margin: 4px 0 0; display: flex; flex-direction: column; gap: 8px; }
+.result-lines li {
+  font-size: 12.5px;
+  line-height: 1.42;
+  color: var(--muted);
+  padding: 9px 11px;
+  border-radius: 10px;
+  background: rgba(255,255,255,.035);
+  border-left: 2px solid rgba(110,231,255,.4);
+}
+.rank-line {
+  display: flex; align-items: baseline; justify-content: space-between;
+  padding: 10px 12px; border-radius: 12px;
+  background: rgba(255,255,255,.045);
+  border: 1px solid var(--line);
+  font-size: 12px; color: var(--muted);
+}
+.rank-line b { font-size: 16px; color: var(--text); }
+
+/* --------------------------------- FINALE -------------------------------- */
+.final-box { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; padding: 18px 6px; }
+.final-place { font-size: 30px; font-weight: 900; letter-spacing: -.03em; }
+.final-medal { font-size: 54px; line-height: 1; }
+.final-value { font-size: clamp(34px, 11vw, 46px); font-weight: 900; color: var(--accent); letter-spacing: -.03em; line-height: 1; }
+.final-label { font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--muted-2); font-weight: 800; }
+.final-note { font-size: 12px; color: var(--muted); line-height: 1.5; max-width: 32ch; margin-top: 6px; }
+.final-winner { font-size: 13px; color: var(--muted); margin-top: 8px; }
+.final-winner b { color: var(--gold); }
+
+/* -------------------------------- SPLASH --------------------------------- */
+.splash {
+  position: fixed; inset: 0; z-index: 100;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+  background: rgba(5, 9, 18, .94);
+  backdrop-filter: blur(8px);
+  font-size: 13px; color: var(--muted);
+}
+.spinner {
+  width: 30px; height: 30px; border-radius: 50%;
+  border: 3px solid rgba(255,255,255,.14);
+  border-top-color: var(--cyan);
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* --------------------------------- TOAST --------------------------------- */
+#toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(64px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 120;
+  background: rgba(20, 28, 48, .96);
+  border: 1px solid var(--line-2);
+  color: var(--text);
+  padding: 11px 16px;
+  border-radius: 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  max-width: 86vw;
+  text-align: center;
+  box-shadow: 0 18px 50px rgba(0,0,0,.6);
+  opacity: 0;
+  transition: opacity .2s;
+  pointer-events: none;
+}
+#toast.show { opacity: 1; }
+
+/* --------------------------- manji ekrani --------------------------------- */
+@media (max-height: 700px) {
+  .tap-btn { width: min(52vw, 216px); }
+  .stats-row { padding-bottom: 7px; }
+  .app-head { padding-top: 9px; }
+  .join-logo h1 { font-size: 30px; }
+}

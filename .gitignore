@@ -1,0 +1,20 @@
+# Node
+node_modules/
+npm-debug.log*
+
+# lokalni fajlovi
+test-out.txt
+*.log
+.vscode/
+.env
+.env.*
+
+# headless browser profili (snimci ekrana se čuvaju, profili ne)
+shots/edge-profile/
+shots/edge3/
+shots/chrome-profile*/
+shots/*-profile*/
+
+# OS
+Thumbs.db
+.DS_Store

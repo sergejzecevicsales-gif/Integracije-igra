@@ -1,0 +1,19 @@
+# Render Blueprint — "Deploy to Render" jednim klikom.
+# https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: trziste-uzivo
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm install --omit=dev
+    startCommand: node server.js
+    autoDeploy: true
+    healthCheckPath: /api/info
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # Ako želiš zaštititi admin ekran, otkomentariši i postavi svoj PIN,
+      # pa otvori /screen?pin=TVOJ_PIN
+      # - key: ADMIN_PIN
+      #   value: "1234"

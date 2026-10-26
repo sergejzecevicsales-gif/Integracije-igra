@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="sr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TRŽIŠTE UŽIVO — projektor</title>
+<link rel="icon" href="/favicon.svg">
+<link rel="stylesheet" href="/shared.css">
+<link rel="stylesheet" href="/screen.css">
+</head>
+<body class="screen">
+
+  <!-- ======================= GORNJA TRAKA ======================= -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="kicker"><span class="live-dot"></span> TRŽIŠTE UŽIVO</div>
+      <h1 id="roundTitle">LOBI</h1>
+      <div class="round-sub" id="roundSub">Pridružite se sa telefona</div>
+    </div>
+
+    <div class="clock">
+      <div class="phase-tag" id="phaseTag">PRIPREMA</div>
+      <div class="timer num" id="timer">—</div>
+      <div class="timer-track"><div id="timerFill"></div></div>
+    </div>
+
+    <div class="headstats">
+      <div class="hstat"><b class="num" id="statPlayers">0</b><span>firmi</span></div>
+      <div class="hstat"><b class="num" id="statGroups">0</b><span>grupa</span></div>
+      <div class="hstat"><b class="num" id="statHhi">0</b><span>HHI</span></div>
+    </div>
+  </header>
+
+  <!-- ========================= GLAVNI DIO ======================= -->
+  <main class="layout">
+    <section class="col-left">
+      <div class="panel market">
+        <div class="panel-head"><span>TRŽIŠTE</span><span id="marketCaption">10.000 kupaca</span></div>
+        <div class="pie-wrap">
+          <svg id="pie" viewBox="0 0 560 560" aria-hidden="true"></svg>
+          <div class="pie-center">
+            <div id="pieBig" class="num">10.000</div>
+            <div class="pie-small">kupaca</div>
+            <div class="pie-sub" id="pieSub">0 firmi</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel gauge">
+        <div class="panel-head"><span>HHI — INDEKS KONCENTRACIJE</span><span id="hhiZone" class="zone zone-green">konkurencija</span></div>
+        <div class="gauge-track">
+          <div class="gz gz-green"></div>
+          <div class="gz gz-yellow"></div>
+          <div class="gz gz-red"></div>
+          <div class="gauge-mark" id="gaugeMark"></div>
+        </div>
+        <div class="gauge-axis">
+          <span style="left:0">0</span>
+          <span style="left:33.33%">1.000</span>
+          <span style="left:66.66%">2.000</span>
+          <span style="left:100%">10.000</span>
+        </div>
+        <div class="gauge-foot">
+          <b class="num" id="hhiValue">0</b>
+          <span id="hhiHint">konkurencija — mnogo malih firmi</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="col-right">
+      <div class="panel board-panel">
+        <div class="panel-head"><span>RANG LISTA</span><span>vrijednost = kapital + kupci</span></div>
+        <div id="board" class="board"></div>
+      </div>
+
+      <div class="panel news-panel">
+        <div class="panel-head"><span>VIJESTI SA TRŽIŠTA</span><span class="pulse-dot">●</span></div>
+        <div id="news" class="news"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ========================== OVERLAY ========================= -->
+  <div id="overlay" class="overlay hidden"></div>
+
+  <!-- ======================== ADMIN TRAKA ======================= -->
+  <div class="adminbar" id="adminbar">
+    <div class="admin-left">
+      <span class="admin-label">ADMIN</span>
+      <button class="btn btn-primary" id="btnNext">POKRENI</button>
+      <button class="btn" id="btnPause">PAUZA</button>
+      <button class="btn" id="btnBots">+8 BOTOVA</button>
+      <button class="btn" id="btnReset">NOVA IGRA</button>
+      <button class="btn btn-ghost" id="btnHide">SAKRIJ</button>
+    </div>
+    <div class="admin-right">
+      <span class="admin-progress" id="progressHint"></span>
+      <span class="admin-hint">Space = dalje · P = pauza · F = cijeli ekran</span>
+      <span id="joinHint">Telefoni: —</span>
+    </div>
+  </div>
+
+  <div class="conn-badge hidden" id="connBadge">VEZA PREKINUTA — POKUŠAVAM PONOVO</div>
+
+<script src="/common.js"></script>
+<script src="/screen.js"></script>
+</body>
+</html>

@@ -1,0 +1,98 @@
+/* ===================== TRŽIŠTE UŽIVO — zajednički stilovi ===================== */
+* { box-sizing: border-box; }
+
+:root {
+  --bg: #060a14;
+  --bg-2: #0a1120;
+  --panel: rgba(255, 255, 255, 0.045);
+  --panel-2: rgba(255, 255, 255, 0.025);
+  --line: rgba(255, 255, 255, 0.09);
+  --line-2: rgba(255, 255, 255, 0.16);
+  --text: #eef3ff;
+  --muted: #93a2c4;
+  --muted-2: #6f7fa3;
+  --green: #35e0a1;
+  --yellow: #ffd166;
+  --red: #ff5d73;
+  --cyan: #6ee7ff;
+  --accent: #6ee7ff;
+  --gold: #ffd166;
+  --silver: #cfd8ea;
+  --bronze: #e0a06a;
+  --radius: 20px;
+  --font: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+h1, h2, h3, p, ul { margin: 0; }
+button { font-family: inherit; color: inherit; }
+.hidden { display: none !important; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* --------------------------------- dugmad --------------------------------- */
+.btn {
+  appearance: none;
+  border: 1px solid var(--line-2);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  border-radius: 12px;
+  padding: 9px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+  user-select: none;
+}
+.btn:hover { background: rgba(255, 255, 255, 0.12); border-color: rgba(255, 255, 255, 0.3); }
+.btn:active { transform: scale(0.97); }
+.btn:disabled, .btn[disabled] { opacity: 0.4; cursor: default; }
+.btn-primary {
+  background: linear-gradient(180deg, #7af0c6, #2fd39a);
+  color: #05251b;
+  border-color: transparent;
+  box-shadow: 0 10px 24px rgba(47, 211, 154, 0.32);
+}
+.btn-primary:hover { background: linear-gradient(180deg, #8df7d2, #38ddA4); }
+.btn-xl { padding: 18px 34px; font-size: 19px; border-radius: 16px; }
+.btn-ghost { background: transparent; border-color: rgba(255, 255, 255, 0.14); color: var(--muted); }
+
+/* ------------------------------- kicker / tag ----------------------------- */
+.kicker {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line-2);
+  color: var(--muted);
+}
+
+/* ------------------------------ zone boje --------------------------------- */
+.zone-green { color: var(--green); }
+.zone-yellow { color: var(--yellow); }
+.zone-red { color: var(--red); }
+.bg-green { background: var(--green); }
+.bg-yellow { background: var(--yellow); }
+.bg-red { background: var(--red); }
