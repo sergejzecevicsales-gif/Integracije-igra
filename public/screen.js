@@ -539,7 +539,11 @@ async function admin(action, extra) {
       res = await api('/api/admin', body);
     }
   }
-  if (!res.ok && res.data && res.data.error) {
+  if (res.ok && res.data && res.data.state) {
+    S = res.data.state;
+    offset = S.serverNow - Date.now();
+    render();
+  } else if (!res.ok && res.data && res.data.error) {
     toast(res.data.error);
   }
 }

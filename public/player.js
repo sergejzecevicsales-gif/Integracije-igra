@@ -677,8 +677,15 @@ function buildFinal() {
 async function act(payload) {
   if (!token) return null;
   const res = await api('/api/act', Object.assign({ token }, payload));
-  if (res.data && res.data.ok === false && res.data.error) toast(res.data.error);
-  return res.data;
+  const data = res.data;
+  if (data && data.state) {
+    S = data.state;
+    offset = S.serverNow - Date.now();
+    render();
+  } else if (data && data.ok === false && data.error) {
+    toast(data.error);
+  }
+  return data;
 }
 
 function toast(msg) {

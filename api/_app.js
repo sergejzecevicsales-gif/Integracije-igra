@@ -7,9 +7,8 @@
 const engine = require('../server.js');
 const store = require('./_store.js');
 
-const CACHE_TTL = Number(process.env.TZU_CACHE_MS || 900);   // ms keširanja stanja u memoriji instance
+const CACHE_TTL = Number(process.env.TZU_CACHE_MS || 600);   // ms keširanja stanja u memoriji instance
 const POLL_MS = Number(process.env.TZU_POLL_MS || 800);     // koliko često klijent pita za stanje
-const LOCK_TTL = 5000;
 
 let cache = { state: null, at: 0 };
 let queue = Promise.resolve();
@@ -66,43 +65,41 @@ function needsUpdate(ts) {
   return false;
 }
 
-async function loadState() {
+async function loadState(force) {
   const t = Date.now();
-  if (cache.state && t - cache.at < CACHE_TTL) {
+  if (!force && cache.state && t - cache.at < CACHE_TTL) {
     importState(cache.state);
     return true;
   }
-  importState(await store.getState());
+  const { data } = await store.read();
+  importState(data || {});
   return false;
 }
 
-/* Lock + svježe čitanje + mutacija + upis. Vraća null ako lock nije dobijen. */
-async function withLock(fn) {
-  const token = store.newToken();
-  let ok = false;
-  for (let i = 0; i < 6 && !ok; i++) {
-    ok = await store.acquireLock(token, LOCK_TTL);
-    if (!ok) await sleep(60 + Math.random() * 120);
-  }
-  if (!ok) return null;
-  try {
-    importState(await store.getState());
+/* Optimistički CAS: read -> izmijeni -> upiši samo ako verzija nije promijenjena.
+   Vraća null ako se stanje previše puta promijenilo u međuvremenu. */
+async function withState(fn) {
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const { data, version } = await store.read();
+    importState(data || {});
     const out = await fn();
     const snap = engine.exportState();
-    await store.setState(snap);
-    cache = { state: snap, at: Date.now() };
-    return out === undefined ? true : out;
-  } finally {
-    await store.releaseLock(token);
+    if (await store.write(snap, version)) {
+      cache = { state: snap, at: Date.now() };
+      return out === undefined ? true : out;
+    }
+    await sleep(25 + Math.random() * 60);
   }
+  return null;
 }
 
 /* ------------------------------- RUTE ------------------------------------- */
 async function getState(res, url) {
   const ts = Date.now();
-  await loadState();
+  const fresh = url.searchParams.get('fresh') === '1';
+  await loadState(fresh);
   if (needsUpdate(ts)) {
-    const done = await withLock(() => engine.serverlessTick(ts));
+    const done = await withState(() => engine.serverlessTick(ts));
     if (done === null) { /* lock zauzet — posluži postojeće stanje */ }
   }
   const token = url.searchParams.get('token');
@@ -117,14 +114,14 @@ async function getState(res, url) {
 
 async function postJoin(req, res) {
   const body = await readJson(req);
-  const out = await withLock(() => engine.doJoin(body.name));
+  const out = await withState(() => engine.doJoin(body.name));
   if (!out) return json(res, 409, { error: 'Server je zauzet, pokušaj ponovo.' });
   return json(res, out.status, out.body);
 }
 
 async function postAct(req, res) {
   const body = await readJson(req);
-  const out = await withLock(() => {
+  const out = await withState(() => {
     const ts = Date.now();
     engine.serverlessTick(ts);
     const p = engine.findPlayerByToken(body.token);
@@ -133,7 +130,13 @@ async function postAct(req, res) {
     return { status: 200, body: engine.handleAction(p, body) };
   });
   if (!out) return json(res, 409, { error: 'Server je zauzet, pokušaj ponovo.' });
-  return json(res, out.status || 200, out.body || { ok: true });
+  const payload = out.body || { ok: true };
+  // Odmah vrati svježe stanje igrača (klijent ga primijeni bez čekanja na polling)
+  if (payload.ok && body.type !== 'tap') {
+    const p = engine.findPlayerByToken(body.token);
+    if (p) payload.state = engine.playerState(p, true);
+  }
+  return json(res, out.status || 200, payload);
 }
 
 async function postAdmin(req, res, url) {
@@ -141,9 +144,11 @@ async function postAdmin(req, res, url) {
   if (!engine.checkAdminPin(body, url)) {
     return json(res, 403, { error: 'Pogrešan admin PIN.', pinRequired: true });
   }
-  const out = await withLock(() => engine.doAdmin(body));
+  const out = await withState(() => engine.doAdmin(body));
   if (!out) return json(res, 409, { error: 'Server je zauzet, pokušaj ponovo.' });
-  return json(res, out.status, out.body);
+  const payload = out.body || { ok: true };
+  if (payload.ok) payload.state = engine.commonState(true);
+  return json(res, out.status, payload);
 }
 
 async function postPing(req, res) {

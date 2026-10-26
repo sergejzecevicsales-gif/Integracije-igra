@@ -1,5 +1,8 @@
 # TRŽIŠTE UŽIVO
 
+**🔗 Uživo (Vercel):** [trziste-uzivo.vercel.app/screen](https://trziste-uzivo.vercel.app/screen) ·
+telefoni: [trziste-uzivo.vercel.app](https://trziste-uzivo.vercel.app/)
+
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/sergejzecevicsales-gif/Integracije-igra)
 
 Multiplayer igra za predavanje o tržišnim strukturama, konkurenciji i koncentraciji.
@@ -8,7 +11,8 @@ a profesor na projektoru gleda kako tržište klizi iz konkurencije u oligopol �
 
 * **Projektor / računar:** veliki ekran sa tržištem, HHI mjeračem, rang listom i vijestima
 * **Telefoni:** svaki student vodi svoju firmu (5 rundi)
-* **Bez instalacije, bez baze, bez interneta** — jedan Node.js fajl i statični frontend
+* **Bez instalacije i bez baze za lokalnu igru** — jedan Node.js fajl i statični frontend
+* **Online:** Vercel + Neon Postgres (serverless, polling) — link radi sa bilo koje mreže
 * **Demo režim:** dugme „+8 botova“ popuni salu ako nema dovoljno telefona
 
 ---
@@ -148,7 +152,7 @@ HHI kroz tipičnu igru: **~330–500 → 1.000+ → 4.000–6.000 (crveno) → 8
 server.js            — cijela igra: stanje, pravila, SSE, admin API, botovi (+ export za Vercel)
 api/                 — Vercel serverless varijanta iste igre (KV + polling)
   _app.js            — zajednička logika: lock, lijeni tajmer, botovi, rute
-  _store.js          — Vercel KV / Upstash Redis ili memorijsko skladište
+  _store.js          — Neon Postgres (DATABASE_URL) / Upstash Redis / memorija
   state.js, join.js, act.js, admin.js, info.js, events.js, ping.js
 public/
   index.html         — telefon: prijava + igra
@@ -167,8 +171,8 @@ render.yaml          — Render Blueprint (pun Node server)
 
 * Node.js 18+; jedina npm zavisnost je `@upstash/redis` (samo za Vercel varijantu).
 * Lokalno: **SSE** (`/api/events`) 3–4 puta u sekundi + `POST /api/act`.
-* Vercel: **polling** na ~0,8 s; stanje je u KV, a tajmer/botovi se izvršavaju lijeno
-  na svakom zahtjevu (uz zaključavanje da se ne izgube akcije).
+* Vercel: **polling** na ~0,8 s; stanje je u bazi (JSON + version), promjene su CAS,
+  a tajmer/botovi se izvršavaju lijeno na svakom zahtjevu.
 * Tajmer se svuda računa lokalno iz `endsAt` + `serverNow`, pa UI ne zavisi od transporta.
 * Botovi su serverski igrači sa istim pravilima (`isBot`), pa demo izgleda kao prava sala.
 * Test: `node tools/test-flow.js` (PORT=4000 lokalno, PORT=4200 za serverless-dev).
@@ -222,46 +226,52 @@ Svi snimci (lobi, sve runde, rezultati, finale) su u folderu `shots/`.
 
 ## 10. Postavljanje na internet (hosting)
 
-Postoje **dvije varijante**, oba rade bez izmjene koda:
+Postoje **dvije varijante** iste igre:
 
 | Varijanta | Kako radi | Kada koristiti |
 |---|---|---|
 | **Lokalni server** | Node proces na tvom računaru, SSE, sve u memoriji | učionica, LAN, najbrže i najstabilnije |
-| **Vercel (serverless)** | statične stranice + `api/*` funkcije + Vercel KV (Upstash) + polling | kada treba javni link, bez tvog računara |
+| **Vercel (serverless)** | statične stranice + `api/*` funkcije + Neon Postgres + polling | kada treba javni link, bez tvog računara |
 
 ### A) Lokalno (učionica) — najstabilnije
 
 `start.bat`; telefoni na istu Wi-Fi. Detalji u poglavlju 1.
 
-### B) Vercel — serverless varijanta
+### B) Vercel — već je deployovano
 
-Repo je već pripremljen: `vercel.json` (statične stranice iz `public/`), `api/` funkcije i
-`package.json` sa `@upstash/redis`.
+**Uživo:** [https://trziste-uzivo.vercel.app/screen](https://trziste-uzivo.vercel.app/screen)
+· telefoni: [https://trziste-uzivo.vercel.app/](https://trziste-uzivo.vercel.app/)
 
-1. [vercel.com](https://vercel.com) → **Add New → Project** → uvezi repo `Integracije-igra`
-   (Framework: **Other**, sve ostalo ostavi kako Vercel popuni; Output Directory je već
-   `public` iz `vercel.json`).
-2. **Storage → Upstash KV** (Vercel Marketplace, free plan) → **Connect to project**.
-   Time se automatski dodaju `KV_REST_API_URL` i `KV_REST_API_TOKEN`.
-   (Radi i direktan Upstash Redis: `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`.)
-3. **Deploy** → dobiješ `https://trziste-igra.vercel.app`.
-4. Projektor: `/screen` · telefoni: adresa sa ekrana (QR radi automatski).
-5. (opciono) env `ADMIN_PIN=1234` pa otvori `/screen?pin=1234` — zaštita admina.
+Projekat `trziste-uzivo` je povezan sa GitHub repoom, pa **svaki `git push` automatski
+redeployuje** sajt. Stanje igre je u **Neon Postgres** bazi (`DATABASE_URL`, već povezano
+kroz Vercel Storage), a klijenti koriste polling na ~0,8 s — Vercel serverless ne podržava
+SSE ni dugotrajne veze.
 
-**Kako se ponaša na Vercelu:** nema SSE — klijenti sami pitaju stanje na ~0,8 s
-(`/api/state`), stanje igre je u KV, a tajmer i botovi se „odrade“ lijeno na svakom pozivu.
-Zato je osjećaj malo manje „instant“ nego lokalno, ali igra radi sa telefonima sa bilo koje
-mreže.
+Kako je podešeno (ako praviš ponovo):
+
+1. **Add New → Project** → uvezi repo `Integracije-igra` (Framework: **Other**;
+   Output Directory `public` je već u `vercel.json`).
+2. **Storage → Neon Postgres** → **Connect to project** (dodaje `DATABASE_URL` i `PG*`).
+   Tabela se sama kreira pri prvom zahtjevu (`CREATE TABLE IF NOT EXISTS`).
+3. **Deploy**. Projektor: `/screen` · telefoni: adresa sa ekrana (QR radi automatski).
+4. (opciono) env `ADMIN_PIN=1234` pa otvori `/screen?pin=1234` — zaštita admina.
+   Bez PIN-a admin ekran može otvoriti svako ko zna `/screen`.
+
+**Kako radi bez SSE:** stanje je jedan JSON u bazi sa `version` kolonom; svaka promjena je
+optimistički CAS (`UPDATE ... WHERE version = ?`), a tajmer i botovi se izvršavaju „lijeno“
+na svakom zahtjevu. Akcije vraćaju svježe stanje odmah, ostali igrači ga vide na sljedećem
+pollingu (do ~1 s).
 
 **Ograničenja (bitno za čas):**
 
-* Free KV kvota je mala — jedna partija (30 telefona) potroši **~10–30k komandi**;
-  za više razreda uzmi Upstash pay-as-you-go (par centi) ili igraj lokalno.
-* Preporuka: Vercel region **Frankfurt** (ili najbliži) da bi polling bio brz.
+* Online varijanta je **do ~1 s sporija** od lokalne (polling + serverless).
+* Neon free plan i Vercel Hobby su dovoljni za povremene časove; za više razreda uzmi
+  plaćeni Neon (par dolara) ili igraj lokalno.
+* Region: Vercel `iad1`/najbliži; baza u istom regionu daje najmanji ping.
 * Ako Vercel prijavi „No Output Directory named public“, u Project Settings postavi
   **Output Directory = `public`**.
-* Serverless varijanta ne podržava „pauzu pa nastavi za 10 minuta“ bez gubitka stanja —
-  stanje je u KV, pa preživi, ali tajmer ide dalje.
+* Alternativno se može koristiti **Upstash Redis** umjesto Postgresa — dovoljno je postaviti
+  `KV_REST_API_URL` i `KV_REST_API_TOKEN` (ili `UPSTASH_REDIS_REST_URL/TOKEN`).
 
 ### C) Render (alternativa — pun Node server)
 

@@ -4,7 +4,7 @@
    Pokretanje:  node tools/test-flow.js   (PORT, default 4000) */
 
 const PORT = process.env.PORT || 4000;
-const BASE = `http://127.0.0.1:${PORT}`;
+const BASE = (process.env.BASE_URL || `http://127.0.0.1:${PORT}`).replace(/\/+$/, '');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 let failures = 0;
@@ -26,9 +26,19 @@ async function api(pathname, body, method) {
 }
 
 const admin = (action, extra) => api('/api/admin', Object.assign({ action }, extra || {}));
-const state = async () => (await api('/api/state')).json;
-const playerState = async token => (await api('/api/state?token=' + token)).json;
+const state = async () => (await api('/api/state?fresh=1')).json;
+const playerState = async token => (await api('/api/state?token=' + token + '&fresh=1')).json;
 const act = (token, payload) => api('/api/act', { token, ...payload });
+
+async function waitPlayer(token, fn, timeoutMs, label) {
+  const t0 = Date.now();
+  while (Date.now() - t0 < timeoutMs) {
+    const st = await playerState(token);
+    if (fn(st)) return st;
+    await sleep(150);
+  }
+  throw new Error('timeout: ' + label);
+}
 
 async function waitFor(fn, timeoutMs, label) {
   const t0 = Date.now();
@@ -113,7 +123,9 @@ async function waitFor(fn, timeoutMs, label) {
   r = await act(a.token, { type: 'price', value: 'low' });
   check(r.json.ok, 'izbor niske cijene');
   await act(b.token, { type: 'price', value: 'high' });
-  check((await playerState(a.token)).me.price === 'low', 'cijena sačuvana');
+  let priceOk = true;
+  try { await waitPlayer(a.token, s => s.me.price === 'low', 5000, 'cijena'); } catch (e) { priceOk = false; }
+  check(priceOk, 'cijena sačuvana');
   const capitalBefore = (await playerState(a.token)).me.capital;
   await admin('next');
   st = await waitFor(s => s.phase === 'results' && s.round === 2, 5000, 'rezultati 2');
@@ -151,24 +163,34 @@ async function waitFor(fn, timeoutMs, label) {
   check(r.json.ok, 'druga strana šalje svoju ponudu');
   r = await act(a.token, { type: 'respond', offerId: r.json.offer.id, accept: true });
   check(r.json.ok && r.json.accepted === true, 'ponuda se prihvata');
-  st = await state();
-  const mergedGroup = st.groups.find(g => g.memberIds.includes(a.id) && g.memberIds.includes(b.id));
+  const mergedGroup = await (async () => {
+    try {
+      const s = await waitFor(x => !!x.groups.find(g => g.memberIds.includes(a.id) && g.memberIds.includes(b.id)), 5000, 'spajanje A+B');
+      return s.groups.find(g => g.memberIds.includes(a.id) && g.memberIds.includes(b.id));
+    } catch (e) { return null; }
+  })();
   check(mergedGroup && mergedGroup.members === 2, 'dvije firme su sada jedna grupa', mergedGroup && mergedGroup.members);
 
   // javni poziv na spajanje: C poziva sve, B kao lider prihvata
   r = await act(c.token, { type: 'offer', value: '__open__' });
   check(r.json.ok, 'javni poziv na spajanje poslat', r.json);
   const openOffer = r.json.offer;
-  st = await state();
-  check(st.offers.some(o => o.open), 'javni poziv je vidljiv na tržištu');
+  let openVisible = true;
+  try { st = await waitFor(s => s.offers.some(o => o.open), 5000, 'javni poziv'); } catch (e) { openVisible = false; }
+  check(openVisible, 'javni poziv je vidljiv na tržištu');
   const bMeNow = (await playerState(b.token)).me;
   check(bMeNow.group && bMeNow.group.isLeader, 'B je lider svoje grupe');
   r = await act(b.token, { type: 'respond', offerId: openOffer && openOffer.id, accept: true });
   check(r.json.ok && r.json.accepted === true, 'javni poziv se prihvata', r.json);
-  st = await state();
-  const trio = st.groups.find(g => g.memberIds.includes(a.id) && g.memberIds.includes(b.id) && g.memberIds.includes(c.id));
+  const trio = await (async () => {
+    try {
+      const s = await waitFor(x => !!x.groups.find(g => g.memberIds.includes(a.id) && g.memberIds.includes(b.id) && g.memberIds.includes(c.id)), 5000, 'trio');
+      return s.groups.find(g => g.memberIds.includes(a.id) && g.memberIds.includes(b.id) && g.memberIds.includes(c.id));
+    } catch (e) { return null; }
+  })();
   check(trio && trio.members === 3, 'tri firme u jednoj grupi preko javnog poziva', trio && trio.members);
 
+  st = await state();
   const before4 = st.hhi;
   const t4 = Date.now();
   while (Date.now() - t4 < 25000) {
