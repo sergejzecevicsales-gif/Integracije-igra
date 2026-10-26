@@ -62,6 +62,9 @@ function renderHeader() {
 }
 
 /* --------------------------------- PIE ----------------------------------- */
+const PIE = { parts: [], cur: new Map(), target: new Map(), start: 0, raf: 0, order: new Map(), seq: 0 };
+const PIE_MS = 520;
+
 function polar(cx, cy, r, a) {
   return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
 }
@@ -75,61 +78,183 @@ function donutPath(cx, cy, rOut, rIn, a0, a1) {
     `L${x2.toFixed(2)} ${y2.toFixed(2)} A${rIn} ${rIn} 0 ${large} 0 ${x3.toFixed(2)} ${y3.toFixed(2)} Z`;
 }
 
-function renderPie() {
-  const svg = $('pie');
-  const total = S.meta.totalCustomers;
-  const cx = 280, cy = 280, rOut = 252, rIn = 146;
-  const gap = 0.011;
-  let parts = [];
+function hslRgb(color) {
+  const m = /hsl\(\s*([\d.]+)[ ,]+([\d.]+)%[ ,]+([\d.]+)%/.exec(color || '');
+  if (!m) return null;
+  const h = parseFloat(m[1]) / 360;
+  const s = parseFloat(m[2]) / 100;
+  const l = parseFloat(m[3]) / 100;
+  if (s === 0) return [l, l, l];
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+  const f = t => {
+    t = (t + 1) % 1;
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+    return p;
+  };
+  return [f(h + 1 / 3), f(h), f(h - 1 / 3)];
+}
+function labelColor(color) {
+  const rgb = hslRgb(color);
+  if (!rgb) return '#0c0c0c';
+  const lum = 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
+  return lum > 0.58 ? '#0c0c0c' : '#ffffff';
+}
 
+/* stabilan redoslijed kriški (ne skaču kad se udjeli mijenjaju) */
+function pieOrderIndex(id) {
+  if (!PIE.order.has(id)) PIE.order.set(id, PIE.seq++);
+  return PIE.order.get(id);
+}
+
+function pieParts() {
   if (S.phase === 'lobby') {
     const slots = 30;
+    const parts = [];
     for (let i = 0; i < slots; i++) {
       const p = S.players[i];
       parts.push({
+        id: 'slot' + i,
         share: 1 / slots,
-        color: p ? p.color : 'rgba(0,0,0,0.07)',
+        color: p ? p.color : '#ecebe6',
         name: p ? p.name : '',
         empty: !p,
       });
     }
-  } else {
-    const groups = S.groups.filter(g => g.customers > 0);
-    if (!groups.length) {
-      parts = [{ share: 1, color: 'rgba(0,0,0,0.07)', name: '', empty: true }];
-    } else {
-      parts = groups.map(g => ({ share: g.customers / total, color: g.color, name: g.name, members: g.members, sharePct: g.share }));
-    }
+    return parts;
   }
+  const groups = S.groups.filter(g => g.customers > 0);
+  if (!groups.length) return [{ id: 'empty', share: 1, color: '#ecebe6', name: '', empty: true }];
+  const total = S.meta.totalCustomers;
+  const parts = groups.map(g => ({
+    id: g.id,
+    share: g.customers / total,
+    color: g.color,
+    name: g.name,
+    members: g.members,
+    empty: false,
+  }));
+  parts.sort((a, b) => pieOrderIndex(a.id) - pieOrderIndex(b.id));
+  return parts;
+}
 
+function pieTick(now) {
+  const t = Math.min(1, (now - PIE.start) / PIE_MS);
+  const e = 1 - Math.pow(1 - t, 3);
+  for (const [id, to] of PIE.target) {
+    const from = PIE.cur.has(id) ? PIE.cur.get(id) : 0;
+    PIE.cur.set(id, from + (to - from) * e);
+  }
+  for (const id of [...PIE.cur.keys()]) if (!PIE.target.has(id)) PIE.cur.delete(id);
+  drawPie();
+  if (t < 1) {
+    PIE.raf = requestAnimationFrame(pieTick);
+  } else {
+    for (const [id, to] of PIE.target) PIE.cur.set(id, to);
+    PIE.raf = 0;
+    drawPie();
+  }
+}
+
+function drawPie() {
+  const svg = $('pie');
+  if (!PIE.parts.length) return;
+  const cx = 280, cy = 280, rOut = 228, rIn = 156, rFrame = 238;
+  const gap = 0.008;
   const out = [];
-  if (parts.length === 1) {
-    out.push(`<circle cx="${cx}" cy="${cy}" r="${(rOut + rIn) / 2}" fill="none" stroke="${parts[0].color}" stroke-width="${rOut - rIn}"></circle>`);
-  } else {
-    let a = -Math.PI / 2;
-    for (const part of parts) {
-      const span = part.share * Math.PI * 2;
-      const a0 = a + gap / 2;
-      const a1 = a + span - gap / 2;
-      if (a1 > a0) {
-        out.push(`<path class="slice" d="${donutPath(cx, cy, rOut, rIn, a0, a1)}" fill="${part.color}" opacity="${part.empty ? 0.55 : 1}"></path>`);
+  const trunc = (s, n) => (s.length > n ? s.slice(0, n - 1) + '…' : s);
+
+  out.push(`<circle cx="${cx}" cy="${cy}" r="${rFrame}" fill="none" stroke="rgba(0,0,0,.14)" stroke-width="1" stroke-dasharray="1 7"></circle>`);
+
+  let a = -Math.PI / 2;
+  let ta = -Math.PI / 2;
+  let leader = null, leaderA0 = 0, leaderA1 = 0;
+  const labels = [];
+
+  for (const part of PIE.parts) {
+    const cur = PIE.cur.has(part.id) ? PIE.cur.get(part.id) : part.share;
+    const target = PIE.target.has(part.id) ? PIE.target.get(part.id) : part.share;
+    const span = cur * Math.PI * 2;
+    const tspan = target * Math.PI * 2;
+    const a0 = a + gap / 2;
+    const a1 = a + span - gap / 2;
+
+    if (span > 0.0001) {
+      if (cur >= 0.9995) {
+        out.push(`<circle cx="${cx}" cy="${cy}" r="${(rOut + rIn) / 2}" fill="none" stroke="${part.color}" stroke-width="${rOut - rIn}"></circle>`);
+      } else if (a1 > a0) {
+        out.push(`<path d="${donutPath(cx, cy, rOut, rIn, a0, a1)}" fill="${part.color}" opacity="${part.empty ? 0.9 : 1}"></path>`);
       }
-      // ime unutar velikih komada
-      if (!part.empty && part.share >= 0.05) {
-        const mid = a + span / 2;
-        const [tx, ty] = polar(cx, cy, (rOut + rIn) / 2, mid);
-        const nm = part.name.length > 13 ? part.name.slice(0, 12) + '…' : part.name;
-        out.push(`<text x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" fill="#08101f" font-size="15" font-weight="800" text-anchor="middle" dominant-baseline="middle" style="paint-order:stroke" stroke="rgba(255,255,255,.22)" stroke-width="2">${escapeXml(nm)}</text>`);
-        if (part.share >= 0.09 && part.share <= 0.45) {
-          out.push(`<text x="${tx.toFixed(1)}" y="${(ty + 17).toFixed(1)}" fill="rgba(8,16,31,.72)" font-size="12" font-weight="700" text-anchor="middle">${pct(part.share)}</text>`);
-        }
-      }
-      a += span;
+    }
+
+    if (!part.empty && S.phase !== 'lobby' && target >= 0.07 && target < 0.9995) {
+      labels.push({ name: part.name, share: target, mid: ta + tspan / 2 });
+    }
+    if (target > (leader ? leader.share : 0)) {
+      leader = { share: target, color: part.color };
+      leaderA0 = ta;
+      leaderA1 = ta + tspan;
+    }
+    a += span;
+    ta += tspan;
+  }
+
+  // istaknut lider: luk spolja
+  if (leader && S.phase !== 'lobby' && leader.share >= 0.1 && leader.share < 0.9995) {
+    const a0 = leaderA0 + gap;
+    const a1 = leaderA1 - gap;
+    const large = (a1 - a0) > Math.PI ? 1 : 0;
+    const [x0, y0] = polar(cx, cy, rOut + 6, a0);
+    const [x1, y1] = polar(cx, cy, rOut + 6, a1);
+    out.push(`<path d="M${x0.toFixed(2)} ${y0.toFixed(2)} A${rOut + 6} ${rOut + 6} 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}" fill="none" stroke="#0c0c0c" stroke-width="3" stroke-linecap="round"></path>`);
+  }
+
+  // oznake van prstena, sa tankim vezama; najviše 6 najvećih
+  labels.sort((x, y) => y.share - x.share);
+  const shown = labels.slice(0, 6);
+  const items = shown.map(l => {
+    const cos = Math.cos(l.mid);
+    const side = cos >= 0 ? 1 : -1;
+    return {
+      ...l, side,
+      x: cx + side * (rFrame + 16),
+      y: cy + Math.sin(l.mid) * (rFrame + 14),
+    };
+  });
+  for (const side of [1, -1]) {
+    const list = items.filter(i => i.side === side).sort((p, q) => p.y - q.y);
+    for (let i = 0; i < list.length; i++) {
+      const minY = i === 0 ? 24 : list[i - 1].y + 38;
+      if (list[i].y < minY) list[i].y = minY;
+    }
+    const overflow = list.length ? list[list.length - 1].y - 536 : 0;
+    if (overflow > 0) for (const it of list) it.y -= overflow;
+    for (const it of list) {
+      const ax = cx + Math.cos(it.mid) * (rFrame + 4);
+      const ay = cy + Math.sin(it.mid) * (rFrame + 4);
+      out.push(`<line x1="${ax.toFixed(1)}" y1="${ay.toFixed(1)}" x2="${(it.x - it.side * 8).toFixed(1)}" y2="${(it.y - 6).toFixed(1)}" stroke="#0c0c0c" stroke-opacity="0.28" stroke-width="1"></line>`);
+      out.push(`<text x="${it.x.toFixed(1)}" y="${it.y.toFixed(1)}" fill="#0c0c0c" font-size="15" font-weight="700" text-anchor="${it.side > 0 ? 'start' : 'end'}" dominant-baseline="middle" style="font-family:var(--font)">${escapeXml(trunc(it.name, 15))}</text>`);
+      out.push(`<text x="${it.x.toFixed(1)}" y="${(it.y + 17).toFixed(1)}" fill="#5a5a5a" font-size="12" text-anchor="${it.side > 0 ? 'start' : 'end'}" dominant-baseline="middle" style="font-family:var(--mono)">${pct(it.share)}</text>`);
     }
   }
-  svg.innerHTML = out.join('');
 
-  const shownCustomers = S.phase === 'lobby' ? total : S.totals.customers;
+  svg.innerHTML = out.join('');
+}
+function renderPie() {
+  PIE.parts = pieParts();
+  PIE.target = new Map(PIE.parts.map(p => [p.id, p.share]));
+  for (const [id, s] of PIE.target) if (!PIE.cur.has(id)) PIE.cur.set(id, 0);
+  if (SNAP) {
+    for (const [id, s] of PIE.target) PIE.cur.set(id, s);
+    drawPie();
+  } else {
+    PIE.start = performance.now();
+    if (!PIE.raf) PIE.raf = requestAnimationFrame(pieTick);
+  }
+
+  const shownCustomers = S.phase === 'lobby' ? S.meta.totalCustomers : S.totals.customers;
   $('pieBig').textContent = fmt0(shownCustomers);
   const nGroups = S.phase === 'lobby' ? S.totals.players : S.totals.groups;
   const nPlayers = S.totals.players;
@@ -137,7 +262,6 @@ function renderPie() {
     ? `<b>${fmt0(nPlayers)}</b> ${nPlayers === 1 ? 'firma' : 'firmi'}`
     : `<b>${fmt0(nGroups)}</b> ${nGroups === 1 ? 'grupa' : 'grupe'} · <b>${fmt0(nPlayers)}</b> firmi`;
 }
-
 function escapeXml(s) {
   return String(s).replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' }[c]));
 }

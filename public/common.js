@@ -106,8 +106,11 @@ function pollStream(url, onState, onStatus, interval) {
 async function startStream(url, onState, onStatus) {
   if (SNAP) {
     const st = syncGet(url.replace('/api/events', '/api/state'));
-    if (st) { if (onStatus) onStatus('online'); onState(st); }
-    else if (onStatus) onStatus('offline');
+    // odloži prvi render da se modul u potpunosti učita (izbjegava TDZ)
+    setTimeout(() => {
+      if (st) { if (onStatus) onStatus('online'); onState(st); }
+      else if (onStatus) onStatus('offline');
+    }, 0);
     return { close() { } };
   }
   // Provjeri da li server radi kao serverless (Vercel) — tada nema SSE.
@@ -124,7 +127,7 @@ async function startStream(url, onState, onStatus) {
     es = new EventSource(url);
     es.onopen = () => { if (onStatus) onStatus('online'); };
     es.onmessage = e => {
-      try { onState(JSON.parse(e.data)); } catch (err) { /* ignore */ }
+      try { onState(JSON.parse(e.data)); } catch (err) { console.error(err); }
     };
     es.onerror = () => {
       if (onStatus) onStatus('offline');

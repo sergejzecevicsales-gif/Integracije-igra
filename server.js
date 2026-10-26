@@ -86,8 +86,10 @@ const rint = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 
 function colorFor(i) {
-  const h = Math.round((i * 137.508 + 12) % 360);
-  return `hsl(${h} 85% 62%)`;
+  const h = (i * 137.508 + 12) % 360;
+  // ujednačena zasićenost; žuti dio spektra malo svjetliji da tekst bude čitljiv
+  const l = (h >= 30 && h <= 85) ? 63 : 57;
+  return `hsl(${h.toFixed(0)} 70% ${l}%)`;
 }
 
 /* ------------------------------ STANJE IGRE ------------------------------- */
