@@ -479,20 +479,11 @@
   font-size: clamp(14px, 1.05vw, 19px);
   line-height: 1.5;
   color: #333;
-  padding: 12px 0 12px 22px;
+  padding: 13px 0;
   border-top: 1px solid var(--line-soft);
-  position: relative;
 }
 .res-lines li:first-child { border-top: none; }
-.res-lines li::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 1.1em;
-  width: 12px;
-  height: 2px;
-  background: var(--muted-2);
-}
+.res-lines li::before { content: none; }
 .res-table { display: flex; flex-direction: column; overflow: auto; }
 .res-row {
   display: grid;
