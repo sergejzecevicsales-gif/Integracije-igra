@@ -114,7 +114,9 @@ function render() {
 
 function updateHeader() {
   const me = S.me;
-  $('myDot').style.background = '#f4f4f4';
+  const myColor = (me.group && me.group.members > 1 ? me.group.color : me.color) || '#0c0c0c';
+  const sw = $('myColor');
+  if (sw) sw.style.background = myColor || '#0c0c0c';
   $('myName').textContent = me.group && me.group.members > 1 ? me.group.name : me.name;
   const badge = $('leaderBadge');
   const isLeader = me.group && me.group.isLeader && me.group.members > 1;
@@ -188,13 +190,18 @@ function buildLobby() {
   const root = h('div', { class: 'lobby-wait' },
     h('div', { class: 'lobby-mark' }),
     h('h2', {}, 'Firma je osnovana'),
-    h('div', { class: 'firm-name-big', id: 'lobbyFirm' }, S.me.name),
+    h('div', { class: 'firm-name-big', id: 'lobbyFirm' }, h('span', { class: 'swatch', id: 'lobbySwatch' }), S.me.name),
     h('p', {}, 'Dobio si 50 miliona KM kapitala. Na tržištu je 10.000 kupaca i svi se bore za njih. Igra ima 5 rundi.'),
     h('div', { class: 'live-count', id: 'lobbyCount' }, ''),
     h('div', { class: 'note' }, 'Kada se svi prijave, profesor pokreće igru.')
   );
   const update = st => {
-    $('lobbyFirm').textContent = st.me.name;
+    const firmEl = $('lobbyFirm');
+    if (firmEl) {
+      const sw = document.getElementById('lobbySwatch');
+      if (sw) sw.style.background = st.me.color || '#0c0c0c';
+      if (firmEl.childNodes[1]) firmEl.childNodes[1].nodeValue = st.me.name;
+    }
     const n = st.totals.players;
     $('lobbyCount').innerHTML = '<b>' + fmt0(n) + '</b> ' + (n === 1 ? 'firma u sali' : 'firmi u sali');
   };
@@ -438,7 +445,7 @@ function buildMerge() {
     const gp = h('div', { class: 'group-panel' });
     if (g && g.members > 1) {
       gp.append(
-        h('div', { class: 'gp-name' }, g.name),
+        h('div', { class: 'gp-name' }, h('span', { class: 'swatch', style: { background: g.color || '#0c0c0c' } }), g.name),
         h('div', { class: 'gp-meta' }, g.members + ' firmi: ' + (g.memberNames || []).join(', ')),
         h('div', { class: 'gp-meta' }, 'Lider: ' + g.leaderName + (g.isLeader ? ' (ti)' : '') + ' · udio ' + pct(g.share) + ' · vrijednost ' + fmt1(g.score) + ' mil'),
         h('div', { class: 'gp-meta' }, 'Zajedno imate ' + fmt0(g.customers) + ' kupaca i ' + fmt1(g.capital) + ' mil kapitala.'),
@@ -446,7 +453,7 @@ function buildMerge() {
       );
     } else {
       gp.append(
-        h('div', { class: 'gp-name' }, me.name),
+        h('div', { class: 'gp-name' }, h('span', { class: 'swatch', style: { background: me.color || '#0c0c0c' } }), me.name),
         h('div', { class: 'gp-meta' }, 'Samostalna firma · ' + fmt0(me.customers) + ' kupaca · ' + fmt1(me.capital) + ' mil kapitala'),
         h('div', { class: 'gp-meta' }, 'Ako prihvatiš spajanje: ' + gainText + '. Zato se isplati biti u većoj grupi.')
       );
@@ -462,9 +469,11 @@ function buildMerge() {
         refs.offerMeta = refs.offerMeta || [];
         refs.offerMeta.push({ el: metaEl, id: o.id });
         card.append(
-          h('div', { class: 'offer-title' }, o.open
-            ? o.fromGroupName + ' poziva sve firme na spajanje'
-            : o.fromGroupName + ' želi da se spoji s tobom'),
+          h('div', { class: 'offer-title' },
+            h('span', { class: 'swatch', style: { background: o.fromColor || '#0c0c0c' } }),
+            o.open
+              ? o.fromGroupName + ' poziva sve firme na spajanje'
+              : o.fromGroupName + ' želi da se spoji s tobom'),
           metaEl
         );
         if (o.canRespond) {
@@ -519,7 +528,7 @@ function buildMerge() {
       root.append(h('div', { class: 'section-label' }, 'Ili pošalji ponudu jednoj grupi'));
       for (const o of others) {
         const row = h('div', { class: 'merge-row' },
-          h('span', { class: 'mr-dot' }),
+          h('span', { class: 'mr-dot', style: { background: o.color || '#0c0c0c' } }),
           h('div', { class: 'mr-main' },
             h('div', { class: 'mr-name' }, o.name),
             h('div', { class: 'mr-meta' }, o.members + ' firmi · ' + pct(o.share) + ' tržišta · ' + fmt1(o.score) + ' mil')
@@ -641,8 +650,11 @@ function buildResults() {
     (me.prevCustomers != null ? me.prevCustomers : me.customers) * cv;
   const dVal = value - prevValue;
 
+  const resColor = me.group && me.group.members > 1 ? me.group.color : me.color;
   root.append(
-    h('div', { class: 'result-kicker' }, 'RUNDA ' + S.round + ' · ' + ((r.title || '').toUpperCase())),
+    h('div', { class: 'result-kicker' },
+      h('span', { class: 'swatch', style: { background: resColor || '#0c0c0c' } }),
+      'RUNDA ' + S.round + ' · ' + ((r.title || '').toUpperCase())),
     h('div', { class: 'result-big ' + bigClass }, big),
     h('div', { class: 'result-sub' }, sub),
     h('div', { class: 'rank-line' },

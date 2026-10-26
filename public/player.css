@@ -93,7 +93,7 @@ body.player {
   font-weight: 700;
   letter-spacing: -0.01em;
 }
-.firm-chip .dot { width: 9px; height: 9px; background: #0c0c0c; flex: none; }
+.firm-chip .firm-color { width: 10px; height: 10px; border-radius: 50%; background: #0c0c0c; flex: none; }
 #myName { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .badge {
   flex: none;
@@ -496,3 +496,27 @@ body.player {
   border-left: 2px solid var(--text);
   padding-left: 10px;
 }
+
+/* ------------------------- boja firme / grupe ----------------------------- */
+.firm-color {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #0c0c0c;
+  box-shadow: 0 0 0 2px #fff, 0 0 0 3px rgba(0, 0, 0, 0.18);
+}
+.swatch {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  margin-right: 8px;
+  vertical-align: baseline;
+  flex: none;
+}
+.gp-name { display: flex; align-items: center; }
+.offer-title { display: flex; align-items: baseline; flex-wrap: wrap; }
+.offer-title .swatch { width: 10px; height: 10px; margin-right: 7px; }
+.firm-name-big { display: flex; align-items: center; justify-content: center; gap: 2px; }
+.result-kicker { display: flex; align-items: center; }
