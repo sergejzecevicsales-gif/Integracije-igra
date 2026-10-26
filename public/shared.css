@@ -1,26 +1,22 @@
-/* ===================== TRŽIŠTE UŽIVO — zajednički stilovi ===================== */
+/* ===================== TRŽIŠTE UŽIVO — zajednički stilovi =====================
+   Minimalistički crno-bijeli sistem. Boja postoji samo na projektoru
+   (krug tržišta i oznake firmi) — sve ostalo je crno, bijelo i sivo.
+   ============================================================================ */
 * { box-sizing: border-box; }
 
 :root {
-  --bg: #060a14;
-  --bg-2: #0a1120;
-  --panel: rgba(255, 255, 255, 0.045);
-  --panel-2: rgba(255, 255, 255, 0.025);
-  --line: rgba(255, 255, 255, 0.09);
-  --line-2: rgba(255, 255, 255, 0.16);
-  --text: #eef3ff;
-  --muted: #93a2c4;
-  --muted-2: #6f7fa3;
-  --green: #35e0a1;
-  --yellow: #ffd166;
-  --red: #ff5d73;
-  --cyan: #6ee7ff;
-  --accent: #6ee7ff;
-  --gold: #ffd166;
-  --silver: #cfd8ea;
-  --bronze: #e0a06a;
-  --radius: 20px;
+  --bg: #000000;
+  --surface: #070707;
+  --surface-2: #0d0d0d;
+  --text: #f4f4f4;
+  --muted: #9a9a9a;
+  --muted-2: #636363;
+  --line: rgba(255, 255, 255, 0.14);
+  --line-2: rgba(255, 255, 255, 0.3);
+  --line-soft: rgba(255, 255, 255, 0.07);
+  --radius: 10px;
   --font: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, Consolas, "Liberation Mono", monospace;
 }
 
 html, body {
@@ -37,41 +33,44 @@ h1, h2, h3, p, ul { margin: 0; }
 button { font-family: inherit; color: inherit; }
 .hidden { display: none !important; }
 .num { font-variant-numeric: tabular-nums; }
+.mono { font-family: var(--mono); }
 
 /* --------------------------------- dugmad --------------------------------- */
 .btn {
   appearance: none;
   border: 1px solid var(--line-2);
-  background: rgba(255, 255, 255, 0.06);
+  background: transparent;
   color: var(--text);
-  border-radius: 12px;
-  padding: 9px 16px;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  border-radius: 8px;
+  padding: 9px 15px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: transform 0.12s ease, background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
   user-select: none;
+  white-space: nowrap;
 }
-.btn:hover { background: rgba(255, 255, 255, 0.12); border-color: rgba(255, 255, 255, 0.3); }
-.btn:active { transform: scale(0.97); }
-.btn:disabled, .btn[disabled] { opacity: 0.4; cursor: default; }
+.btn:hover { background: rgba(255, 255, 255, 0.08); border-color: #fff; }
+.btn:active { transform: translateY(1px); }
+.btn:disabled, .btn[disabled] { opacity: 0.3; cursor: default; }
 .btn-primary {
-  background: linear-gradient(180deg, #7af0c6, #2fd39a);
-  color: #05251b;
-  border-color: transparent;
-  box-shadow: 0 10px 24px rgba(47, 211, 154, 0.32);
+  background: #f4f4f4;
+  color: #000;
+  border-color: #f4f4f4;
 }
-.btn-primary:hover { background: linear-gradient(180deg, #8df7d2, #38ddA4); }
-.btn-xl { padding: 18px 34px; font-size: 19px; border-radius: 16px; }
-.btn-ghost { background: transparent; border-color: rgba(255, 255, 255, 0.14); color: var(--muted); }
+.btn-primary:hover { background: #fff; color: #000; }
+.btn-xl { padding: 17px 32px; font-size: 13px; border-radius: 10px; }
+.btn-ghost { border-color: var(--line); color: var(--muted); }
 
-/* ------------------------------- kicker / tag ----------------------------- */
+/* ------------------------------- oznake ---------------------------------- */
 .kicker {
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.22em;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.26em;
   text-transform: uppercase;
   color: var(--muted);
 }
@@ -79,20 +78,18 @@ button { font-family: inherit; color: inherit; }
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.12em;
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   padding: 4px 9px;
   border-radius: 999px;
-  border: 1px solid var(--line-2);
+  border: 1px solid var(--line);
   color: var(--muted);
 }
 
-/* ------------------------------ zone boje --------------------------------- */
-.zone-green { color: var(--green); }
-.zone-yellow { color: var(--yellow); }
-.zone-red { color: var(--red); }
-.bg-green { background: var(--green); }
-.bg-yellow { background: var(--yellow); }
-.bg-red { background: var(--red); }
+/* ------------------------------ zone (sivo) ------------------------------- */
+.zone,
+.zone-green, .zone-yellow, .zone-red { color: var(--text); }
+.bg-green, .bg-yellow, .bg-red { background: currentColor; }

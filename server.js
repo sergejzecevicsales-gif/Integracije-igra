@@ -611,6 +611,7 @@ function finishVote() {
     const v = game.votes.get(p.id);
     if (v && tally.has(v)) { tally.set(v, tally.get(v) + 1); votesCast++; }
   }
+  const preGroups = groupList();
   const lines = [];
   lines.push(`Glasalo je ${votesCast} od ${players.length} firmi.`);
   let banned = null;
@@ -652,6 +653,12 @@ function finishVote() {
       banned = { groupId: only.id, name: only.name, color: only.color, votes: 0, members: only.memberCount, auto: true };
     } else {
       lines.push('Nema dovoljno grupa za glasanje — Komisija nije nikoga zabranila.');
+    }
+  }
+  if (banned && preGroups.length) {
+    const top = preGroups[0];
+    if (top.id !== banned.groupId && top.share > 0.25) {
+      lines.push(`Najveća grupa ${top.name} (${pct(top.share)}) nije zabranjena — glasovi su se podijelili. To je regulatorni neuspjeh (ili uspješno lobiranje).`);
     }
   }
   if (banned) lines.push(`Za 25 sekundi rasprave tržište se vratilo na ${groupList().length} firmi. To je moć konkurencijske politike.`);

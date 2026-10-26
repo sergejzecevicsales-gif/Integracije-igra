@@ -114,9 +114,7 @@ function render() {
 
 function updateHeader() {
   const me = S.me;
-  const color = me.color || '#6ee7ff';
-  document.documentElement.style.setProperty('--accent', color);
-  $('myDot').style.background = color;
+  $('myDot').style.background = '#f4f4f4';
   $('myName').textContent = me.group && me.group.members > 1 ? me.group.name : me.name;
   const badge = $('leaderBadge');
   const isLeader = me.group && me.group.isLeader && me.group.members > 1;
@@ -186,7 +184,7 @@ function buildStage(key) {
 /* --------------------------------- LOBI ----------------------------------- */
 function buildLobby() {
   const root = h('div', { class: 'lobby-wait' },
-    h('div', { class: 'big-emoji' }, '🏢'),
+    h('div', { class: 'lobby-mark' }),
     h('h2', {}, 'Firma je osnovana'),
     h('div', { class: 'firm-name-big', id: 'lobbyFirm' }, S.me.name),
     h('p', {}, 'Dobio si 50 miliona KM kapitala. Na tržištu je 10.000 kupaca i svi se bore za njih. Igra ima 5 rundi.'),
@@ -455,8 +453,8 @@ function buildMerge() {
         refs.offerMeta.push({ el: metaEl, id: o.id });
         card.append(
           h('div', { class: 'offer-title' }, o.open
-            ? '📣 ' + o.fromGroupName + ' poziva sve firme na spajanje'
-            : '🤝 ' + o.fromGroupName + ' želi da se spoji s tobom'),
+            ? o.fromGroupName + ' poziva sve firme na spajanje'
+            : o.fromGroupName + ' želi da se spoji s tobom'),
           metaEl
         );
         if (o.canRespond) {
@@ -480,8 +478,8 @@ function buildMerge() {
       refs.outMeta = h('div', { class: 'offer-meta' }, outText(me.outgoing, st));
       root.append(h('div', { class: 'offer-card' },
         h('div', { class: 'offer-title' }, me.outgoing.open
-          ? '📣 Tvoj javni poziv je otvoren'
-          : '📤 Ponuda poslata: ' + me.outgoing.toGroupName),
+          ? 'Tvoj javni poziv je otvoren'
+          : 'Ponuda poslata: ' + me.outgoing.toGroupName),
         refs.outMeta
       ));
     }
@@ -490,7 +488,7 @@ function buildMerge() {
     if (me.canOffer || (g && g.isLeader)) {
       root.append(h('div', { class: 'section-label' }, 'Pošalji ponudu'));
       const openBtn = h('button', { class: 'btn-open-offer', type: 'button' },
-        '📣 POZOVI SVE FIRME NA SPAJANJE'
+        'POZOVI SVE FIRME NA SPAJANJE'
       );
       openBtn.onclick = () => act({ type: 'offer', value: '__open__' });
       refs.openBtn = openBtn;
@@ -503,7 +501,7 @@ function buildMerge() {
       root.append(h('div', { class: 'section-label' }, 'Ili pošalji ponudu jednoj grupi'));
       for (const o of others) {
         const row = h('div', { class: 'merge-row' },
-          h('span', { class: 'mr-dot', style: { background: o.color } }),
+          h('span', { class: 'mr-dot' }),
           h('div', { class: 'mr-main' },
             h('div', { class: 'mr-name' }, o.name),
             h('div', { class: 'mr-meta' }, o.members + ' firmi · ' + pct(o.share) + ' tržišta · ' + fmt1(o.score) + ' mil')
@@ -634,7 +632,7 @@ function buildResults() {
     const ok = me.investSuccess === true;
     root.append(h('div', { class: 'result-lines' },
       h('li', { style: { borderLeftColor: ok ? 'var(--green)' : 'var(--red)' } },
-        ok ? '🧪 Tvoja inovacija je USPJELA — kupci su udvostručeni!' : '💥 Tvoja inovacija nije uspjela — uloženih 20 mil je izgubljeno.')
+        ok ? '✓ Tvoja inovacija je USPJELA — kupci su udvostručeni.' : '✗ Tvoja inovacija nije uspjela — uloženih 20 mil je izgubljeno.')
     ));
   }
   if (S.round === 4 && me.group) {
@@ -658,10 +656,9 @@ function buildResults() {
 function buildFinal() {
   const me = S.me;
   const place = me.groupRank || me.rank;
-  const medal = place === 1 ? '🥇' : place === 2 ? '🥈' : place === 3 ? '🥉' : '🏁';
   const winner = S.final && S.final.winner;
   const root = h('div', { class: 'final-box' },
-    h('div', { class: 'final-medal' }, medal),
+    h('div', { class: 'final-place-num' }, '#' + place),
     h('div', { class: 'final-place' }, place + '. mjesto'),
     h('div', { class: 'final-label' }, 'vrijednost firme'),
     h('div', { class: 'final-value' }, fmt1(me.score) + ' mil'),

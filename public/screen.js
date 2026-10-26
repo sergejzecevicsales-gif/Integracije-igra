@@ -165,6 +165,7 @@ function renderGauge() {
 function makeRow() {
   const root = h('div', { class: 'brow' },
     h('div', { class: 'brank' }, ''),
+    h('span', { class: 'bdot' }),
     h('div', { class: 'bname-wrap' },
       h('div', { class: 'bname' }),
       h('div', { class: 'bsharebar' }, h('i'))
@@ -175,6 +176,7 @@ function makeRow() {
   return {
     root,
     rank: root.querySelector('.brank'),
+    dot: root.querySelector('.bdot'),
     name: root.querySelector('.bname'),
     members: null,
     bar: root.querySelector('.bsharebar i'),
@@ -213,8 +215,9 @@ function renderBoard() {
     if (r.members > 1) {
       row.name.append(h('span', { class: 'bmembers', text: r.members + ' firmi' }));
     }
+    row.dot.style.background = r.color;
     row.bar.style.width = Math.max(2, r.share * 100).toFixed(2) + '%';
-    row.bar.style.background = r.color;
+    row.bar.style.background = '#f4f4f4';
     row.cust.textContent = fmt0(r.customers);
     row.val.textContent = fmt1(r.score);
   }
@@ -369,7 +372,7 @@ function finalHTML() {
   if (rank[2]) podItems.push({ p: rank[2], cls: 'third', h: '10.5vh' });
   const podHTML = podItems.map(({ p, cls, h }) => `
     <div class="pod ${cls}">
-      <div class="pod-name" style="color:${p.color}">${escapeXml(p.name)}</div>
+      <div class="pod-name">${escapeXml(p.name)}</div>
       <div class="pod-value">${fmt1(p.score)} mil KM</div>
       <div class="pod-col" style="height:${h}">${p.place}</div>
     </div>`).join('');
@@ -401,7 +404,7 @@ function updateOverlay() {
     const qr = document.getElementById('qrImg');
     if (qr && !qr.dataset.set) {
       qr.dataset.set = '1';
-      const url = 'https://api.qrserver.com/v1/create-qr-code/?size=280x280&margin=0&bgcolor=0c1426&color=ffffff&data=' + encodeURIComponent(S.joinUrl);
+      const url = 'https://api.qrserver.com/v1/create-qr-code/?size=280x280&margin=0&bgcolor=000000&color=ffffff&data=' + encodeURIComponent(S.joinUrl);
       qr.onerror = () => { const w = document.getElementById('qrWrap'); if (w) w.classList.add('failed'); const n = document.getElementById('qrNote'); if (n) n.textContent = 'Bez interneta — upišite adresu ručno.'; };
       qr.src = url;
     }
@@ -431,9 +434,13 @@ function updateOverlay() {
       const first = hs.length ? hs[0].hhi : 0;
       const last = hs.length ? hs[hs.length - 1].hhi : 0;
       const maxH = S.final.maxHhi || 0;
-      story.innerHTML = `Vi ste za 6 minuta napravili tržište od konkurencije (HHI <b>${fmt0(first)}</b>) ` +
-        `do oligopola (HHI <b>${fmt0(maxH)}</b>) — i nazad na HHI <b>${fmt0(last)}</b>. ` +
-        `Isti pragovi kao na slajdu: <b>1.000</b> i <b>2.000</b>.`;
+      const dropped = last < maxH * 0.8;
+      const arc = dropped
+        ? `Vi ste za 6 minuta napravili tržište od konkurencije (HHI <b>${fmt0(first)}</b>) do oligopola ` +
+          `(HHI <b>${fmt0(maxH)}</b>) — i nazad na HHI <b>${fmt0(last)}</b>.`
+        : `Za 6 minuta tržište je otišlo od konkurencije (HHI <b>${fmt0(first)}</b>) do oligopola ` +
+          `(HHI <b>${fmt0(maxH)}</b>), a Komisija ga je spustila samo na HHI <b>${fmt0(last)}</b> — najveća grupa je preživjela.`;
+      story.innerHTML = arc + ` Isti pragovi kao na slajdu: <b>1.000</b> i <b>2.000</b>.`;
     }
   }
 }
@@ -464,16 +471,16 @@ function drawChart(svg, history, meta) {
   svg.innerHTML = '';
   const defs = ns('defs', {});
   const grad = ns('linearGradient', { id: 'areaGrad', x1: '0', y1: '0', x2: '0', y2: '1' });
-  grad.append(ns('stop', { offset: '0%', 'stop-color': '#6ee7ff', 'stop-opacity': '.35' }));
-  grad.append(ns('stop', { offset: '100%', 'stop-color': '#6ee7ff', 'stop-opacity': '0' }));
+  grad.append(ns('stop', { offset: '0%', 'stop-color': '#ffffff', 'stop-opacity': '.16' }));
+  grad.append(ns('stop', { offset: '100%', 'stop-color': '#ffffff', 'stop-opacity': '0' }));
   defs.append(grad);
   svg.append(defs);
 
-  // zone trake
+  // zone: bijelo → sivo → šrafura
   const zones = [
-    { from: 0, to: meta.hhiLow, fill: 'rgba(53,224,161,.10)' },
-    { from: meta.hhiLow, to: meta.hhiHigh, fill: 'rgba(255,209,102,.10)' },
-    { from: meta.hhiHigh, to: maxVal, fill: 'rgba(255,93,115,.10)' },
+    { from: 0, to: meta.hhiLow, fill: 'rgba(255,255,255,.025)' },
+    { from: meta.hhiLow, to: meta.hhiHigh, fill: 'rgba(255,255,255,.055)' },
+    { from: meta.hhiHigh, to: maxVal, fill: 'rgba(255,255,255,.02)' },
   ];
   for (const z of zones) {
     svg.append(ns('rect', {
@@ -487,15 +494,19 @@ function drawChart(svg, history, meta) {
     const yy = y(v);
     if (yy < padT - 1) continue;
     svg.append(ns('line', { x1: padL, y1: yy, x2: W - padR, y2: yy, stroke: 'rgba(255,255,255,.07)', 'stroke-width': 1 }));
-    const t = ns('text', { x: padL - 12, y: yy + 4, 'text-anchor': 'end', fill: '#6f7fa3', 'font-size': 11, 'font-weight': 700 });
+    const t = ns('text', { x: padL - 12, y: yy + 4, 'text-anchor': 'end', fill: '#636363', 'font-size': 10, 'font-family': 'ui-monospace, Menlo, monospace' });
     t.textContent = fmt0(v);
     svg.append(t);
   }
-  // pragovi
-  for (const [val, color, label] of [[meta.hhiLow, '#ffd166', '1.000'], [meta.hhiHigh, '#ff5d73', '2.000']]) {
+  // pragovi: 1.000 sivo, 2.000 bijelo
+  for (const [val, color, label] of [[meta.hhiLow, '#8a8a8a', '1.000'], [meta.hhiHigh, '#f4f4f4', '2.000']]) {
     const yy = y(val);
-    svg.append(ns('line', { x1: padL, y1: yy, x2: W - padR, y2: yy, stroke: color, 'stroke-width': 1.5, 'stroke-dasharray': '6 6', opacity: .8 }));
-    const t = ns('text', { x: W - padR, y: yy - 7, 'text-anchor': 'end', fill: color, 'font-size': 10, 'font-weight': 800, 'letter-spacing': '1' });
+    svg.append(ns('line', { x1: padL, y1: yy, x2: W - padR, y2: yy, stroke: color, 'stroke-width': 1, 'stroke-dasharray': '2 5', opacity: .9 }));
+    const t = ns('text', {
+      x: padL + 8, y: yy - 6, 'text-anchor': 'start', fill: color,
+      'font-size': 9, 'font-weight': 600, 'letter-spacing': '1.5',
+      'font-family': 'ui-monospace, Menlo, monospace',
+    });
     t.textContent = 'PRAG ' + label;
     svg.append(t);
   }
@@ -505,19 +516,19 @@ function drawChart(svg, history, meta) {
     const line = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
     const area = line + ` L${pts[pts.length - 1][0].toFixed(1)} ${H - padB} L${pts[0][0].toFixed(1)} ${H - padB} Z`;
     svg.append(ns('path', { d: area, fill: 'url(#areaGrad)' }));
-    svg.append(ns('path', { d: line, fill: 'none', stroke: '#6ee7ff', 'stroke-width': 3, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
+    svg.append(ns('path', { d: line, fill: 'none', stroke: '#f4f4f4', 'stroke-width': 2.5, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
     history.forEach((h, i) => {
       const [px, py] = pts[i];
-      const color = h.hhi < meta.hhiLow ? '#35e0a1' : h.hhi <= meta.hhiHigh ? '#ffd166' : '#ff5d73';
-      svg.append(ns('circle', { cx: px, cy: py, r: 5.5, fill: color, stroke: '#060a14', 'stroke-width': 3 }));
-      const lx = ns('text', { x: px, y: H - padB + 20, 'text-anchor': 'middle', fill: '#93a2c4', 'font-size': 11, 'font-weight': 700 });
+      svg.append(ns('circle', { cx: px, cy: py, r: 5, fill: '#f4f4f4', stroke: '#000', 'stroke-width': 2.5 }));
+      const lx = ns('text', { x: px, y: H - padB + 20, 'text-anchor': 'middle', fill: '#636363', 'font-size': 10, 'font-weight': 600, 'font-family': 'ui-monospace, Menlo, monospace' });
       lx.textContent = 'R' + (h.round || i + 1);
       svg.append(lx);
       const isLast = i === history.length - 1;
       const vx = ns('text', {
         x: isLast ? px - 8 : px, y: py - 13,
         'text-anchor': isLast ? 'end' : 'middle',
-        fill: '#eef3ff', 'font-size': 11.5, 'font-weight': 800,
+        fill: '#f4f4f4', 'font-size': 11, 'font-weight': 700,
+        'font-family': 'ui-monospace, Menlo, monospace',
       });
       vx.textContent = fmt0(h.hhi);
       svg.append(vx);
@@ -567,17 +578,12 @@ function renderAdmin() {
   const btnPause = $('btnPause');
   const btnBots = $('btnBots');
   const phase = S.phase;
+  btnNext.style.display = phase === 'final' ? 'none' : '';
   if (phase === 'lobby') {
     btnNext.textContent = 'POKRENI';
     btnNext.disabled = S.totals.players === 0;
-  } else if (phase === 'round') {
+  } else if (phase === 'round' || phase === 'results') {
     btnNext.textContent = 'DALJE';
-    btnNext.disabled = false;
-  } else if (phase === 'results') {
-    btnNext.textContent = 'DALJE';
-    btnNext.disabled = false;
-  } else {
-    btnNext.textContent = 'NOVA IGRA';
     btnNext.disabled = false;
   }
   btnPause.textContent = S.paused ? 'NASTAVI' : 'PAUZA';
