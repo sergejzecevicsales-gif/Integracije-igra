@@ -301,7 +301,8 @@ function startRound(n) {
   game.round = n;
   game.phase = 'round';
   game.paused = false;
-  game.endsAt = now() + r.dur * 1000;
+  // Tajmer ima samo runda tapkanja (1); ostale runde profesor otvara/zatvara ručno.
+  game.endsAt = n === 1 ? now() + r.dur * 1000 : 0;
   game.results = null;
   game.roundEvents = [];
   game.startedAt = game.startedAt || now();
@@ -365,7 +366,8 @@ function finishRound() {
 
   game.results = res;
   game.phase = 'results';
-  game.endsAt = now() + ROUNDS[n].results * 1000;
+  // Rezultati čekaju profesora — nema automatskog prelaska.
+  game.endsAt = 0;
   game.offers = game.offers.filter(o => o.status === 'pending');
   for (const o of game.offers) if (o.status === 'pending') o.status = 'expired';
   game.offers = [];
@@ -1021,8 +1023,8 @@ function commonState(canAdmin) {
     paused: game.paused,
     endsAt,
     timerLeft,
-    phaseDuration: game.phase === 'round' && ROUNDS[round] ? ROUNDS[round].dur * 1000
-      : game.phase === 'results' && ROUNDS[round] ? ROUNDS[round].results * 1000 : 0,
+    phaseDuration: game.phase === 'round' && round === 1 && ROUNDS[1] ? ROUNDS[1].dur * 1000 : 0,
+    manual: !(game.phase === 'round' && round === 1),
     roundInfo: info ? { n: info.n, key: info.key, title: info.title, sub: info.sub, dur: info.dur } : null,
     canAdmin: !!canAdmin,
     joinUrl: lanUrl(),

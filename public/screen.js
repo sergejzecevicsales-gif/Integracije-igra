@@ -88,7 +88,7 @@ function renderPie() {
       const p = S.players[i];
       parts.push({
         share: 1 / slots,
-        color: p ? p.color : 'rgba(255,255,255,0.05)',
+        color: p ? p.color : 'rgba(0,0,0,0.07)',
         name: p ? p.name : '',
         empty: !p,
       });
@@ -96,7 +96,7 @@ function renderPie() {
   } else {
     const groups = S.groups.filter(g => g.customers > 0);
     if (!groups.length) {
-      parts = [{ share: 1, color: 'rgba(255,255,255,0.05)', name: '', empty: true }];
+      parts = [{ share: 1, color: 'rgba(0,0,0,0.07)', name: '', empty: true }];
     } else {
       parts = groups.map(g => ({ share: g.customers / total, color: g.color, name: g.name, members: g.members, sharePct: g.share }));
     }
@@ -136,7 +136,6 @@ function renderPie() {
   $('pieSub').innerHTML = S.phase === 'lobby' || nGroups === nPlayers
     ? `<b>${fmt0(nPlayers)}</b> ${nPlayers === 1 ? 'firma' : 'firmi'}`
     : `<b>${fmt0(nGroups)}</b> ${nGroups === 1 ? 'grupa' : 'grupe'} · <b>${fmt0(nPlayers)}</b> firmi`;
-  $('marketCaption').textContent = '10.000 kupaca';
 }
 
 function escapeXml(s) {
@@ -170,8 +169,8 @@ function makeRow() {
       h('div', { class: 'bname' }),
       h('div', { class: 'bsharebar' }, h('i'))
     ),
-    h('div', { class: 'bcust' }, h('b'), h('span', { text: 'KUPACA' })),
-    h('div', { class: 'bvalue' }, h('b'), h('span', { text: 'MIL KM' }))
+    h('div', { class: 'bcust' }, h('b')),
+    h('div', { class: 'bvalue' }, h('b'))
   );
   return {
     root,
@@ -217,7 +216,7 @@ function renderBoard() {
     }
     row.dot.style.background = r.color;
     row.bar.style.width = Math.max(2, r.share * 100).toFixed(2) + '%';
-    row.bar.style.background = '#f4f4f4';
+    row.bar.style.background = '#0c0c0c';
     row.cust.textContent = fmt0(r.customers);
     row.val.textContent = fmt1(r.score);
   }
@@ -246,30 +245,24 @@ function renderNews() {
 /* -------------------------------- TIMER ---------------------------------- */
 function updateTimer() {
   if (!S) return;
-  const phase = S.phase;
   const timerEl = $('timer');
   const fill = $('timerFill');
-  const inPhase = phase === 'round' || phase === 'results';
-  if (!inPhase) {
-    timerEl.textContent = phase === 'final' ? '★' : '—';
-    timerEl.classList.remove('low');
-    fill.style.width = phase === 'lobby' ? '100%' : '0%';
-    fill.classList.remove('low');
-    return;
-  }
-  let ms;
-  if (S.paused) ms = S.timerLeft;
-  else ms = S.endsAt ? Math.max(0, S.endsAt - (Date.now() + offset)) : S.timerLeft;
+  const track = fill.parentElement;
+  // Tajmer postoji samo za rundu tapkanja; sve ostalo profesor otvara/zatvara ručno.
+  const visible = S.phase === 'round' && !S.manual;
+  timerEl.style.display = visible ? '' : 'none';
+  track.style.display = visible ? '' : 'none';
+  if (!visible) return;
+  const ms = S.paused
+    ? S.timerLeft
+    : (S.endsAt ? Math.max(0, S.endsAt - (Date.now() + offset)) : 0);
   timerEl.textContent = S.paused ? '⏸' : secondsText(ms);
-  const low = ms <= 5000 && phase === 'round' && !S.paused;
+  const low = ms <= 5000 && !S.paused;
   timerEl.classList.toggle('low', low);
   fill.classList.toggle('low', low);
   const dur = S.phaseDuration || 1;
   fill.style.width = clampN((ms / dur) * 100, 0, 100).toFixed(1) + '%';
-  const resSec = document.getElementById('resSec');
-  if (resSec) resSec.textContent = secondsText(ms);
 }
-
 /* -------------------------------- OVERLAY -------------------------------- */
 function renderOverlay() {
   const phase = S.phase;
@@ -344,7 +337,7 @@ function resultsHTML() {
   <div class="ov-card res-card">
     <div class="res-top">
       <div class="res-kicker">Runda ${r.round} · ${escapeXml(r.title || '')}</div>
-      <div class="res-countdown">Dalje za <b id="resSec">10</b> s</div>
+      <div class="res-countdown">Dalje — Space</div>
     </div>
     <h2 class="res-headline">${escapeXml(r.headline || '')}</h2>
     <div class="res-body">
@@ -357,7 +350,6 @@ function resultsHTML() {
         <span class="zone zone-${zoneKey(r.hhi, S.meta)}">${r.hhiZone || zoneName(r.hhi, S.meta)}</span>
       </div>
       <div class="res-note">${groupInfo}</div>
-      <div class="res-note">Space = dalje</div>
     </div>
   </div>`;
 }
@@ -392,10 +384,6 @@ function finalHTML() {
     <div class="podium">${podHTML}</div>
     <div class="chart-wrap"><svg id="finalChart" viewBox="0 0 1000 260" preserveAspectRatio="xMidYMid meet"></svg></div>
     <div class="final-story" id="finalStory"></div>
-    <div class="final-actions">
-      <div class="final-hint">R = nova igra · F = cijeli ekran</div>
-      <div class="final-hint">${fmt0(S.totals.players)} firmi · ${fmt0(S.totals.customers)} kupaca na kraju</div>
-    </div>
   </div>`;
 }
 
@@ -404,7 +392,7 @@ function updateOverlay() {
     const qr = document.getElementById('qrImg');
     if (qr && !qr.dataset.set) {
       qr.dataset.set = '1';
-      const url = 'https://api.qrserver.com/v1/create-qr-code/?size=280x280&margin=0&bgcolor=000000&color=ffffff&data=' + encodeURIComponent(S.joinUrl);
+      const url = 'https://api.qrserver.com/v1/create-qr-code/?size=280x280&margin=0&bgcolor=ffffff&color=000000&data=' + encodeURIComponent(S.joinUrl);
       qr.onerror = () => { const w = document.getElementById('qrWrap'); if (w) w.classList.add('failed'); const n = document.getElementById('qrNote'); if (n) n.textContent = 'Bez interneta — upišite adresu ručno.'; };
       qr.src = url;
     }
@@ -435,11 +423,18 @@ function updateOverlay() {
       const last = hs.length ? hs[hs.length - 1].hhi : 0;
       const maxH = S.final.maxHhi || 0;
       const dropped = last < maxH * 0.8;
-      const arc = dropped
-        ? `Vi ste za 6 minuta napravili tržište od konkurencije (HHI <b>${fmt0(first)}</b>) do oligopola ` +
-          `(HHI <b>${fmt0(maxH)}</b>) — i nazad na HHI <b>${fmt0(last)}</b>.`
-        : `Za 6 minuta tržište je otišlo od konkurencije (HHI <b>${fmt0(first)}</b>) do oligopola ` +
+      const survived = last >= maxH * 0.98;
+      let arc;
+      if (survived) {
+        arc = `Za 6 minuta tržište je otišlo od konkurencije (HHI <b>${fmt0(first)}</b>) do oligopola ` +
+          `(HHI <b>${fmt0(maxH)}</b>), a Komisija ga nije oborila — najveća grupa je preživjela.`;
+      } else if (dropped) {
+        arc = `Vi ste za 6 minuta napravili tržište od konkurencije (HHI <b>${fmt0(first)}</b>) do oligopola ` +
+          `(HHI <b>${fmt0(maxH)}</b>) — i nazad na HHI <b>${fmt0(last)}</b>.`;
+      } else {
+        arc = `Za 6 minuta tržište je otišlo od konkurencije (HHI <b>${fmt0(first)}</b>) do oligopola ` +
           `(HHI <b>${fmt0(maxH)}</b>), a Komisija ga je spustila samo na HHI <b>${fmt0(last)}</b> — najveća grupa je preživjela.`;
+      }
       story.innerHTML = arc + ` Isti pragovi kao na slajdu: <b>1.000</b> i <b>2.000</b>.`;
     }
   }
@@ -471,16 +466,16 @@ function drawChart(svg, history, meta) {
   svg.innerHTML = '';
   const defs = ns('defs', {});
   const grad = ns('linearGradient', { id: 'areaGrad', x1: '0', y1: '0', x2: '0', y2: '1' });
-  grad.append(ns('stop', { offset: '0%', 'stop-color': '#ffffff', 'stop-opacity': '.16' }));
-  grad.append(ns('stop', { offset: '100%', 'stop-color': '#ffffff', 'stop-opacity': '0' }));
+  grad.append(ns('stop', { offset: '0%', 'stop-color': '#0c0c0c', 'stop-opacity': '.16' }));
+  grad.append(ns('stop', { offset: '100%', 'stop-color': '#0c0c0c', 'stop-opacity': '0' }));
   defs.append(grad);
   svg.append(defs);
 
   // zone: bijelo → sivo → šrafura
   const zones = [
-    { from: 0, to: meta.hhiLow, fill: 'rgba(255,255,255,.025)' },
-    { from: meta.hhiLow, to: meta.hhiHigh, fill: 'rgba(255,255,255,.055)' },
-    { from: meta.hhiHigh, to: maxVal, fill: 'rgba(255,255,255,.02)' },
+    { from: 0, to: meta.hhiLow, fill: 'rgba(0,0,0,.035)' },
+    { from: meta.hhiLow, to: meta.hhiHigh, fill: 'rgba(0,0,0,.07)' },
+    { from: meta.hhiHigh, to: maxVal, fill: 'rgba(0,0,0,.02)' },
   ];
   for (const z of zones) {
     svg.append(ns('rect', {
@@ -493,13 +488,13 @@ function drawChart(svg, history, meta) {
   for (let v = 0; v <= maxVal; v += 1000) {
     const yy = y(v);
     if (yy < padT - 1) continue;
-    svg.append(ns('line', { x1: padL, y1: yy, x2: W - padR, y2: yy, stroke: 'rgba(255,255,255,.07)', 'stroke-width': 1 }));
-    const t = ns('text', { x: padL - 12, y: yy + 4, 'text-anchor': 'end', fill: '#636363', 'font-size': 10, 'font-family': 'ui-monospace, Menlo, monospace' });
+    svg.append(ns('line', { x1: padL, y1: yy, x2: W - padR, y2: yy, stroke: 'rgba(0,0,0,.09)', 'stroke-width': 1 }));
+    const t = ns('text', { x: padL - 12, y: yy + 4, 'text-anchor': 'end', fill: '#8c8c8c', 'font-size': 11, 'font-family': 'ui-monospace, Menlo, monospace' });
     t.textContent = fmt0(v);
     svg.append(t);
   }
   // pragovi: 1.000 sivo, 2.000 bijelo
-  for (const [val, color, label] of [[meta.hhiLow, '#8a8a8a', '1.000'], [meta.hhiHigh, '#f4f4f4', '2.000']]) {
+  for (const [val, color, label] of [[meta.hhiLow, '#9a9a9a', '1.000'], [meta.hhiHigh, '#0c0c0c', '2.000']]) {
     const yy = y(val);
     svg.append(ns('line', { x1: padL, y1: yy, x2: W - padR, y2: yy, stroke: color, 'stroke-width': 1, 'stroke-dasharray': '2 5', opacity: .9 }));
     const t = ns('text', {
@@ -516,18 +511,18 @@ function drawChart(svg, history, meta) {
     const line = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
     const area = line + ` L${pts[pts.length - 1][0].toFixed(1)} ${H - padB} L${pts[0][0].toFixed(1)} ${H - padB} Z`;
     svg.append(ns('path', { d: area, fill: 'url(#areaGrad)' }));
-    svg.append(ns('path', { d: line, fill: 'none', stroke: '#f4f4f4', 'stroke-width': 2.5, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
+    svg.append(ns('path', { d: line, fill: 'none', stroke: '#0c0c0c', 'stroke-width': 2.5, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
     history.forEach((h, i) => {
       const [px, py] = pts[i];
-      svg.append(ns('circle', { cx: px, cy: py, r: 5, fill: '#f4f4f4', stroke: '#000', 'stroke-width': 2.5 }));
-      const lx = ns('text', { x: px, y: H - padB + 20, 'text-anchor': 'middle', fill: '#636363', 'font-size': 10, 'font-weight': 600, 'font-family': 'ui-monospace, Menlo, monospace' });
+      svg.append(ns('circle', { cx: px, cy: py, r: 5, fill: '#0c0c0c', stroke: '#fff', 'stroke-width': 2.5 }));
+      const lx = ns('text', { x: px, y: H - padB + 20, 'text-anchor': 'middle', fill: '#8c8c8c', 'font-size': 11, 'font-weight': 600, 'font-family': 'ui-monospace, Menlo, monospace' });
       lx.textContent = 'R' + (h.round || i + 1);
       svg.append(lx);
       const isLast = i === history.length - 1;
       const vx = ns('text', {
         x: isLast ? px - 8 : px, y: py - 13,
         'text-anchor': isLast ? 'end' : 'middle',
-        fill: '#f4f4f4', 'font-size': 11, 'font-weight': 700,
+        fill: '#0c0c0c', 'font-size': 12, 'font-weight': 700,
         'font-family': 'ui-monospace, Menlo, monospace',
       });
       vx.textContent = fmt0(h.hhi);
@@ -564,7 +559,7 @@ function toast(msg) {
   let el = document.getElementById('toast');
   if (!el) {
     el = h('div', { id: 'toast' });
-    el.style.cssText = 'position:fixed;left:50%;bottom:70px;transform:translateX(-50%);z-index:95;background:rgba(255,93,115,.16);border:1px solid rgba(255,93,115,.5);color:#ffd2d9;padding:10px 18px;border-radius:12px;font-size:13px;font-weight:700;backdrop-filter:blur(8px);transition:opacity .2s';
+    el.style.cssText = 'position:fixed;left:50%;bottom:70px;transform:translateX(-50%);z-index:95;background:#fff;border:1.5px solid #0c0c0c;color:#0c0c0c;padding:10px 18px;border-radius:12px;font-size:13px;font-weight:700;backdrop-filter:blur(8px);transition:opacity .2s';
     document.body.append(el);
   }
   el.textContent = msg;

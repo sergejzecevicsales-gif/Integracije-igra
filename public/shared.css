@@ -1,19 +1,19 @@
 /* ===================== TRŽIŠTE UŽIVO — zajednički stilovi =====================
-   Minimalistički crno-bijeli sistem. Boja postoji samo na projektoru
-   (krug tržišta i oznake firmi) — sve ostalo je crno, bijelo i sivo.
+   Minimalistički crno-bijeli sistem na svijetloj podlozi. Boja postoji samo
+   na projektoru (krug tržišta i oznake firmi) — sve ostalo je crno/bijelo/sivo.
    ============================================================================ */
 * { box-sizing: border-box; }
 
 :root {
-  --bg: #000000;
-  --surface: #070707;
-  --surface-2: #0d0d0d;
-  --text: #f4f4f4;
-  --muted: #9a9a9a;
-  --muted-2: #636363;
-  --line: rgba(255, 255, 255, 0.14);
-  --line-2: rgba(255, 255, 255, 0.3);
-  --line-soft: rgba(255, 255, 255, 0.07);
+  --bg: #f3f2ee;
+  --surface: #ffffff;
+  --surface-2: #faf9f6;
+  --text: #0c0c0c;
+  --muted: #5a5a5a;
+  --muted-2: #8c8c8c;
+  --line: rgba(0, 0, 0, 0.16);
+  --line-2: rgba(0, 0, 0, 0.42);
+  --line-soft: rgba(0, 0, 0, 0.07);
   --radius: 10px;
   --font: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
   --mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, Consolas, "Liberation Mono", monospace;
@@ -42,35 +42,35 @@ button { font-family: inherit; color: inherit; }
   background: transparent;
   color: var(--text);
   border-radius: 8px;
-  padding: 9px 15px;
+  padding: 10px 16px;
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
   user-select: none;
   white-space: nowrap;
 }
-.btn:hover { background: rgba(255, 255, 255, 0.08); border-color: #fff; }
+.btn:hover { background: rgba(0, 0, 0, 0.07); border-color: #000; }
 .btn:active { transform: translateY(1px); }
 .btn:disabled, .btn[disabled] { opacity: 0.3; cursor: default; }
 .btn-primary {
-  background: #f4f4f4;
-  color: #000;
-  border-color: #f4f4f4;
+  background: #0c0c0c;
+  color: #fff;
+  border-color: #0c0c0c;
 }
-.btn-primary:hover { background: #fff; color: #000; }
-.btn-xl { padding: 17px 32px; font-size: 13px; border-radius: 10px; }
+.btn-primary:hover { background: #000; color: #fff; }
+.btn-xl { padding: 18px 32px; font-size: 14px; border-radius: 10px; }
 .btn-ghost { border-color: var(--line); color: var(--muted); }
 
 /* ------------------------------- oznake ---------------------------------- */
 .kicker {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.26em;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--muted);
 }
@@ -79,9 +79,9 @@ button { font-family: inherit; color: inherit; }
   align-items: center;
   gap: 6px;
   font-family: var(--mono);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   padding: 4px 9px;
   border-radius: 999px;

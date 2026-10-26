@@ -132,10 +132,10 @@ function hintText() {
   if (S.phase === 'results') return 'Pogledaj rezultate na projektoru.';
   if (S.phase === 'final') return 'Kraj igre — hvala na učešću!';
   if (S.round === 1) return 'Tapkanje se šalje automatski.';
-  if (S.round === 2) return 'Cijenu možeš mijenjati do kraja runde.';
-  if (S.round === 3) return 'Ulaganje se odmah odbija od kapitala.';
+  if (S.round === 2) return 'Kada svi odaberu, profesor zatvara rundu.';
+  if (S.round === 3) return 'Kada svi ulože, profesor zatvara rundu.';
   if (S.round === 4) return me.group && me.group.isLeader ? 'Ti si lider — ti odgovaraš na ponude.' : 'Samo lider grupe šalje i prihvata ponude.';
-  if (S.round === 5) return 'Glasanje je tajno — glasaj za jednu grupu.';
+  if (S.round === 5) return 'Kada svi glasaju, profesor zatvara rundu.';
   return '';
 }
 
@@ -648,7 +648,7 @@ function buildResults() {
   if (lines.length) {
     root.append(h('div', { class: 'result-lines' }, lines.map(t => h('li', {}, t))));
   }
-  root.append(h('div', { class: 'note' }, 'Kompletni rezultati su na projektoru. Sljedeća runda uskoro.'));
+  root.append(h('div', { class: 'note' }, 'Kompletni rezultati su na projektoru. Profesor pokreće sljedeću rundu.'));
   return { root, update: () => { } };
 }
 
@@ -701,19 +701,17 @@ function toast(msg) {
 setInterval(() => {
   if (!S) return;
   const el = $('myTimer');
-  if (S.phase === 'round' || S.phase === 'results') {
-    const ms = S.paused
-      ? S.timerLeft
-      : (S.endsAt ? Math.max(0, S.endsAt - (Date.now() + offset)) : S.timerLeft);
-    el.textContent = S.paused ? '⏸' : secondsText(ms);
-    el.classList.toggle('low', !S.paused && ms <= 5000);
-    el.classList.toggle('paused', S.paused);
-  } else {
-    el.textContent = S.phase === 'final' ? '★' : '—';
-    el.classList.remove('low', 'paused');
-  }
+  const visible = S.phase === 'round' && !S.manual;
+  el.style.display = visible ? '' : 'none';
+  el.classList.remove('low', 'paused', 'manual');
+  if (!visible) return;
+  const ms = S.paused
+    ? S.timerLeft
+    : (S.endsAt ? Math.max(0, S.endsAt - (Date.now() + offset)) : 0);
+  el.textContent = S.paused ? '⏸' : secondsText(ms);
+  el.classList.toggle('low', !S.paused && ms <= 5000);
+  el.classList.toggle('paused', S.paused);
 }, 150);
-
 /* Tapkanje se šalje u paketima (max ~25/s, koliko server dozvoljava) */
 setInterval(() => { if (tapFlushFn) tapFlushFn(); }, 140);
 

@@ -44,15 +44,16 @@ a profesor na projektoru gleda kako tržište klizi iz konkurencije u oligopol �
 | Faza | Trajanje | Šta studenti rade | Šta piše na projektoru |
 |---|---|---|---|
 | Lobi | dok se svi ne prijave | upisuju ime firme | adresa, QR, lista firmi |
-| **R1 Borba za kupce** | 25 s | tapkaju i otimaju kupce | krug se dijeli na 30 komada, HHI ~330 (zeleno) |
-| **R2 Cjenovni rat** | 20 s | biraju nisku/srednju/visoku cijenu | HHI blago raste, priča o zatvorenikovoj dilemi |
-| **R3 Investicije** | 20 s | reklama / inovacija / štednja | otkriva se čije su inovacije uspjele |
-| **R4 Spajanja** | 50 s | zovu, pregovaraju, spajaju se | krug se skuplja u par velikih komada, **HHI u crveno** |
-| **R5 Komisija** | 25 s | glasaju koju grupu zabraniti | raspad grupe, **HHI pada nazad** |
+| **R1 Borba za kupce** | **25 s (tajmer)** | tapkaju i otimaju kupce | krug se dijeli na 30 komada, HHI ~330 |
+| **R2 Cjenovni rat** | ručno | biraju nisku/srednju/visoku cijenu | HHI blago raste, priča o zatvorenikovoj dilemi |
+| **R3 Investicije** | ručno | reklama / inovacija / štednja | otkriva se čije su inovacije uspjele |
+| **R4 Spajanja** | ručno | zovu, pregovaraju, spajaju se | krug se skuplja u par velikih komada, **HHI u crveno** |
+| **R5 Komisija** | ručno | glasaju koju grupu zabraniti | raspad grupe, **HHI pada nazad** |
 | Kraj | — | gledaju finale | pobjedničko postolje + graf HHI kroz igru |
 
-Igra je automatska (same prelazi iz runde u rundu), a profesor u svakom trenutku može
-da preskoči (`DALJE`), pauzira (`PAUZA`) ili produži objašnjenje.
+**Tajmer ima samo runda tapkanja (R1).** Sve ostale runde, kao i svaki ekran sa rezultatima,
+profesor zatvara i otvara ručno dugmetom **DALJE** (i `Space`) — tako ima vremena za objašnjenje.
+`PAUZA` zamrzava igru (i tajmer u R1) kad je potrebno.
 
 ---
 
@@ -63,7 +64,7 @@ da preskoči (`DALJE`), pauzira (`PAUZA`) ili produži objašnjenje.
 Svako tapkanje je dio tržišta. Na kraju runde kupci se dijele srazmjerno broju tapkanja
 (+ mali bazni udio da niko ne ostane na nuli). 10.000 kupaca, 30 firmi → HHI ≈ 330.
 
-### Runda 2 — Cjenovni rat (20 s)
+### Runda 2 — Cjenovni rat (ručno)
 
 | Cijena | Zarada po kupcu | Privlačnost kupaca |
 |---|---|---|
@@ -75,7 +76,7 @@ Kupci se preraspodjeljuju prema cijeni (oni sa niskom cijenom uzimaju dio onima 
 Zamka: **ako svi obore cijenu, niko ne dobija kupce**, a svi zarađuju manje.
 Ako svi drže visoku cijenu, svi zarađuju — ali svako pojedinačno ima motiv da obori cijenu.
 
-### Runda 3 — Investicije (20 s)
+### Runda 3 — Investicije (ručno)
 
 | Ulaganje | Cijena | Efekat |
 |---|---|---|
@@ -85,7 +86,7 @@ Ako svi drže visoku cijenu, svi zarađuju — ali svako pojedinačno ima motiv 
 
 Trošak se odbija odmah; ishod inovacije se otkriva na projektoru na kraju runde.
 
-### Runda 4 — Spajanja (50 s)
+### Runda 4 — Spajanja (ručno)
 
 * **Direktna ponuda** — pošalješ ponudu jednoj grupi; ona prihvata/odbija (12 s).
 * **Javni poziv** — pozoveš sve firme; svaka grupa koja prihvati pridružuje se tvojoj (20 s).
@@ -93,7 +94,7 @@ Trošak se odbija odmah; ishod inovacije se otkriva na projektoru na kraju runde
 * Grupe se mogu spajati dalje. **Samo lider grupe** šalje i prihvata ponude.
 * Spajanje objedinjuje kapital i kupce. Lider ostaje onaj ko je inicirao spajanje.
 
-### Runda 5 — Komisija (25 s)
+### Runda 5 — Komisija (ručno)
 
 * Glasa svaka firma, jedan glas, **ne može se glasati za svoju grupu**.
 * Na glasačkom listiću su **4 najveće grupe**; zabranjuje se ona sa najviše glasova.
@@ -118,7 +119,7 @@ Dugmad u donjoj traci:
 | Dugme | Šta radi |
 |---|---|
 | **POKRENI / DALJE** | pokreće igru / preskače trenutnu fazu |
-| **PAUZA** | zamrzava tajmer (i igru) dok pričaš |
+| **PAUZA** | zamrzava igru (i tajmer u R1) dok pričaš |
 | **+8 BOTOVA** | dodaje demo firme u lobiju (samo u lobiju) |
 | **NOVA IGRA** | resetuje rezultate, zadržava firme (za ponovno igranje iste grupe) |
 | **SAKRIJ** | sklanja admin traku sa projektora |
@@ -173,7 +174,7 @@ render.yaml          — Render Blueprint (pun Node server)
 * Lokalno: **SSE** (`/api/events`) 3–4 puta u sekundi + `POST /api/act`.
 * Vercel: **polling** na ~0,8 s; stanje je u bazi (JSON + version), promjene su CAS,
   a tajmer/botovi se izvršavaju lijeno na svakom zahtjevu.
-* Tajmer se svuda računa lokalno iz `endsAt` + `serverNow`, pa UI ne zavisi od transporta.
+* Tajmer postoji samo u R1; ostale faze traju dok profesor ne klikne **DALJE**.
 * Botovi su serverski igrači sa istim pravilima (`isBot`), pa demo izgleda kao prava sala.
 * Test: `node tools/test-flow.js` (PORT=4000 lokalno, PORT=4200 za serverless-dev).
 
