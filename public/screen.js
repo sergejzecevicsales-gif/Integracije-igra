@@ -189,7 +189,7 @@ function drawPie() {
       }
     }
 
-    if (!part.empty && S.phase !== 'lobby' && target >= 0.07 && target < 0.9995) {
+    if (!part.empty && S.phase !== 'lobby' && target >= 0.10 && target < 0.9995) {
       labels.push({ name: part.name, share: target, mid: ta + tspan / 2 });
     }
     if (target > (leader ? leader.share : 0)) {
@@ -213,7 +213,7 @@ function drawPie() {
 
   // oznake van prstena, sa tankim vezama; najviše 6 najvećih
   labels.sort((x, y) => y.share - x.share);
-  const shown = labels.slice(0, 6);
+  const shown = labels.slice(0, 4);
   const items = shown.map(l => {
     const cos = Math.cos(l.mid);
     const side = cos >= 0 ? 1 : -1;
