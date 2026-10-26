@@ -1,5 +1,7 @@
 # TRŽIŠTE UŽIVO
 
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/sergejzecevicsales-gif/Integracije-igra)
+
 Multiplayer igra za predavanje o tržišnim strukturama, konkurenciji i koncentraciji.
 Studenti osnivaju firme na telefonima i 6–7 minuta igraju na tržištu od **10.000 kupaca**,
 a profesor na projektoru gleda kako tržište klizi iz konkurencije u oligopol — i nazad.
