@@ -220,9 +220,12 @@ function buildTap() {
 
   let pending = 0;
   let flushing = false;
+  let lastSend = 0;
 
   const flush = async () => {
     if (!pending || flushing) return;
+    if (isPolling() && Date.now() - lastSend < 450) return;
+    lastSend = Date.now();
     const n = Math.min(30, pending);
     pending -= n;
     flushing = true;
@@ -321,6 +324,8 @@ function buildInvest() {
   const list = h('div', { class: 'choice-list' });
   const cards = new Map();
   const invs = S.meta.investments;
+  let optimisticKey = null;
+  let optimisticUntil = 0;
   for (const inv of invs) {
     const tags = [];
     if (inv.key === 'ad') {
@@ -346,6 +351,12 @@ function buildInvest() {
     );
     card.addEventListener('click', () => {
       if (!S || S.paused) return;
+      optimisticKey = inv.key;
+      optimisticUntil = Date.now() + 2200;
+      for (const [k, v] of cards) {
+        v.card.classList.toggle('selected', k === inv.key);
+        v.check.classList.toggle('hidden', k !== inv.key);
+      }
       act({ type: 'invest', value: inv.key });
     });
     cards.set(inv.key, { card, check, inv });
@@ -360,9 +371,11 @@ function buildInvest() {
     h('div', { class: 'note' }, 'Trošak se odbija odmah. Možeš promijeniti izbor dok je runda aktivna.')
   );
   const update = st => {
+    if (optimisticKey && Date.now() > optimisticUntil) optimisticKey = null;
+    const shown = optimisticKey || st.me.invest;
     for (const [k, v] of cards) {
-      v.card.classList.toggle('selected', st.me.invest === k);
-      v.check.classList.toggle('hidden', st.me.invest !== k);
+      v.card.classList.toggle('selected', shown === k);
+      v.check.classList.toggle('hidden', shown !== k);
       const tooExpensive = v.inv.cost > st.me.capital + 0.001;
       v.card.classList.toggle('disabled', tooExpensive || !!st.paused);
       v.card.title = tooExpensive ? 'Nemaš dovoljno kapitala' : '';

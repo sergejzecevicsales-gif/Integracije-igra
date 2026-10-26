@@ -77,13 +77,44 @@ async function api(path, body) {
   }
 }
 
-/* SSE sa automatskim ponovnim spajanjem */
-function startStream(url, onState, onStatus) {
+/* SSE sa automatskim ponovnim spajanjem (lokalno) ili polling (Vercel/serverless) */
+let TRANSPORT = 'sse';
+function isPolling() { return TRANSPORT === 'poll'; }
+
+function pollStream(url, onState, onStatus, interval) {
+  const stateUrl = url.replace('/api/events', '/api/state');
+  let alive = true;
+  let timer = null;
+  const tick = async () => {
+    if (!alive) return;
+    const t0 = Date.now();
+    const res = await api(stateUrl);
+    if (!alive) return;
+    if (res.ok && res.data) {
+      if (onStatus) onStatus('online');
+      onState(res.data);
+    } else if (onStatus) {
+      onStatus('offline');
+    }
+    const wait = Math.max(150, (interval || 800) - (Date.now() - t0));
+    timer = setTimeout(tick, wait);
+  };
+  tick();
+  return { close() { alive = false; clearTimeout(timer); } };
+}
+
+async function startStream(url, onState, onStatus) {
   if (SNAP) {
     const st = syncGet(url.replace('/api/events', '/api/state'));
     if (st) { if (onStatus) onStatus('online'); onState(st); }
     else if (onStatus) onStatus('offline');
     return { close() { } };
+  }
+  // Provjeri da li server radi kao serverless (Vercel) — tada nema SSE.
+  const info = await api('/api/info');
+  if (info.ok && info.data && info.data.serverless) {
+    TRANSPORT = 'poll';
+    return pollStream(url, onState, onStatus, info.data.pollMs || 800);
   }
   let es = null;
   let closed = false;

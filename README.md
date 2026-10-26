@@ -145,34 +145,43 @@ HHI kroz tipičnu igru: **~330–500 → 1.000+ → 4.000–6.000 (crveno) → 8
 ## 6. Za kodera (arhitektura)
 
 ```
-server.js            — cijela igra: stanje, pravila, SSE, admin API, botovi
+server.js            — cijela igra: stanje, pravila, SSE, admin API, botovi (+ export za Vercel)
+api/                 — Vercel serverless varijanta iste igre (KV + polling)
+  _app.js            — zajednička logika: lock, lijeni tajmer, botovi, rute
+  _store.js          — Vercel KV / Upstash Redis ili memorijsko skladište
+  state.js, join.js, act.js, admin.js, info.js, events.js, ping.js
 public/
   index.html         — telefon: prijava + igra
   screen.html        — projektor
-  common.js          — formatiranje, HTTP, SSE klijent
+  common.js          — formatiranje, HTTP, SSE klijent + polling fallback
   player.js          — ekrani po rundama (tap, cijena, investicija, spajanja, glasanje)
   screen.js          — krug tržišta (SVG), HHI mjerač, rang lista, vijesti, finale
   shared.css / screen.css / player.css
 tools/
-  test-flow.js       — end-to-end test bez browsera (botovi + 3 „telefona“, sve 5 rundi)
+  test-flow.js       — end-to-end test bez browsera (radi za oba transporta)
+  serverless-dev.js  — lokalno pokretanje Vercel handlera (memorijsko skladište)
   shots.ps1          — snimci ekrana za vizuelnu provjeru
+vercel.json          — statične stranice iz public/ + clean URL-ovi
+render.yaml          — Render Blueprint (pun Node server)
 ```
 
-* Node.js 18+, **bez ijedne npm zavisnosti**.
-* Komunikacija: **SSE** (`/api/events`) za stanje + `POST /api/act` za akcije.
-* Stanje se šalje 3–4 puta u sekundi; tajmer se računa lokalno iz `endsAt` + `serverNow`.
-* Botovi su serverski igrači sa istim pravilima (`isBot`), pa se demo ponaša kao prava sala.
-* Test: `node tools/test-flow.js` (server mora raditi na portu 4000).
+* Node.js 18+; jedina npm zavisnost je `@upstash/redis` (samo za Vercel varijantu).
+* Lokalno: **SSE** (`/api/events`) 3–4 puta u sekundi + `POST /api/act`.
+* Vercel: **polling** na ~0,8 s; stanje je u KV, a tajmer/botovi se izvršavaju lijeno
+  na svakom zahtjevu (uz zaključavanje da se ne izgube akcije).
+* Tajmer se svuda računa lokalno iz `endsAt` + `serverNow`, pa UI ne zavisi od transporta.
+* Botovi su serverski igrači sa istim pravilima (`isBot`), pa demo izgleda kao prava sala.
+* Test: `node tools/test-flow.js` (PORT=4000 lokalno, PORT=4200 za serverless-dev).
 
 ### API (kratko)
 
 | Ruta | Opis |
 |---|---|
 | `POST /api/join` | `{name}` → `{token, id, name, color}` |
-| `GET /api/state?token=` | trenutno stanje za igrača |
-| `GET /api/events?token=` / `?role=screen` | SSE stream stanja |
+| `GET /api/state?token=` | trenutno stanje za igrača (ili za ekran bez tokena) |
+| `GET /api/events` | SSE stream (lokalno) / `{transport:"poll"}` (Vercel) |
 | `POST /api/act` | `{token, type, ...}` — `tap`, `price`, `invest`, `offer`, `respond`, `vote` |
-| `POST /api/admin` | `{action}` — samo sa localhosta |
+| `POST /api/admin` | `{action, pin?}` — lokalno samo sa računara domaćina, na hostingu uz PIN |
 
 ---
 
@@ -213,37 +222,64 @@ Svi snimci (lobi, sve runde, rezultati, finale) su u folderu `shots/`.
 
 ## 10. Postavljanje na internet (hosting)
 
-Igra je **stalni Node proces**: drži stanje u memoriji i SSE vezu sa svim telefonima.
-Zato joj treba host koji podržava dugotrajne servere.
+Postoje **dvije varijante**, oba rade bez izmjene koda:
 
-> ⚠ **Vercel ne može da pokrene ovu igru.** Vercel Functions su serverless: nemaju
-> zajedničku memoriju između zahtjeva i prekidaju duge veze, pa bi igra „pukla“ na pola
-> časa. Vercel je dobar za statične stranice, ne za ovakav realtime server.
+| Varijanta | Kako radi | Kada koristiti |
+|---|---|---|
+| **Lokalni server** | Node proces na tvom računaru, SSE, sve u memoriji | učionica, LAN, najbrže i najstabilnije |
+| **Vercel (serverless)** | statične stranice + `api/*` funkcije + Vercel KV (Upstash) + polling | kada treba javni link, bez tvog računara |
 
-### Render (preporučeno — besplatno, login preko GitHub-a)
+### A) Lokalno (učionica) — najstabilnije
+
+`start.bat`; telefoni na istu Wi-Fi. Detalji u poglavlju 1.
+
+### B) Vercel — serverless varijanta
+
+Repo je već pripremljen: `vercel.json` (statične stranice iz `public/`), `api/` funkcije i
+`package.json` sa `@upstash/redis`.
+
+1. [vercel.com](https://vercel.com) → **Add New → Project** → uvezi repo `Integracije-igra`
+   (Framework: **Other**, sve ostalo ostavi kako Vercel popuni; Output Directory je već
+   `public` iz `vercel.json`).
+2. **Storage → Upstash KV** (Vercel Marketplace, free plan) → **Connect to project**.
+   Time se automatski dodaju `KV_REST_API_URL` i `KV_REST_API_TOKEN`.
+   (Radi i direktan Upstash Redis: `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`.)
+3. **Deploy** → dobiješ `https://trziste-igra.vercel.app`.
+4. Projektor: `/screen` · telefoni: adresa sa ekrana (QR radi automatski).
+5. (opciono) env `ADMIN_PIN=1234` pa otvori `/screen?pin=1234` — zaštita admina.
+
+**Kako se ponaša na Vercelu:** nema SSE — klijenti sami pitaju stanje na ~0,8 s
+(`/api/state`), stanje igre je u KV, a tajmer i botovi se „odrade“ lijeno na svakom pozivu.
+Zato je osjećaj malo manje „instant“ nego lokalno, ali igra radi sa telefonima sa bilo koje
+mreže.
+
+**Ograničenja (bitno za čas):**
+
+* Free KV kvota je mala — jedna partija (30 telefona) potroši **~10–30k komandi**;
+  za više razreda uzmi Upstash pay-as-you-go (par centi) ili igraj lokalno.
+* Preporuka: Vercel region **Frankfurt** (ili najbliži) da bi polling bio brz.
+* Ako Vercel prijavi „No Output Directory named public“, u Project Settings postavi
+  **Output Directory = `public`**.
+* Serverless varijanta ne podržava „pauzu pa nastavi za 10 minuta“ bez gubitka stanja —
+  stanje je u KV, pa preživi, ali tajmer ide dalje.
+
+### C) Render (alternativa — pun Node server)
+
+Ako ti treba **tačno lokalno ponašanje** (SSE, instant) ali javni link:
 
 1. [render.com](https://render.com) → **Sign up with GitHub**
-2. **New +** → **Blueprint** → izaberi repo `Integracije-igra` → **Apply**
-   (sve je već opisano u `render.yaml`)
-3. Sačekaj build (~1 min) → dobiješ `https://trziste-uzivo.onrender.com`
-4. Projektor: `https://trziste-uzivo.onrender.com/screen`; telefoni idu na adresu sa ekrana
+2. **New +** → **Blueprint** → izaberi repo `Integracije-igra` → **Apply** (`render.yaml`)
+3. Dobiješ `https://trziste-uzivo.onrender.com`; `PORT` i javna adresa se postavljaju sami.
 
-Napomene:
+Free instanca spava poslije 15 min neaktivnosti (prvo otvaranje ~30 s).
+Isto radi na **Railway** i **Fly.io**: start `node server.js`, port iz `PORT`.
+Za custom domenu: `PUBLIC_URL=https://tvojdomen`.
 
-* `PORT` i javna adresa se postavljaju automatski (`RENDER_EXTERNAL_URL`).
-* Free instanca spava poslije 15 min neaktivnosti — prvo otvaranje traje ~30 s.
-* Zaštita admina: dodaj env `ADMIN_PIN=1234` i otvori `/screen?pin=1234`
-  (PIN se zapamti u browseru; bez toga admin ekran može otvoriti svako ko zna `/screen`).
-* Isto radi na **Railway** i **Fly.io**: start komanda `node server.js`, port iz `PORT`.
-  Za custom domenu postavi `PUBLIC_URL=https://tvojdomen` (koristi se za QR i adresu).
+### Testiranje Vercel režima bez Vercela
 
-### Vercel — šta bi značilo
-
-Da bi radilo na Vercelu, trebalo bi napisati drugu verziju servera:
-serverless funkcije + eksterna baza (Vercel KV/Upstash) + polling umjesto SSE + zaključavanje
-stanja. To je poseban projekat i troši dnevne kvote baze pri svakoj igri.
-Ako baš treba link na Vercelu, može samo **statični demo ekrana** (bez telefona) — reci pa
-napravim.
+```bash
+node tools/serverless-dev.js     # http://127.0.0.1:4200 — iste API rute, memorijsko skladište
+```
 
 ---
 

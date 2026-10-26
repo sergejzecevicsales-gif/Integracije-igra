@@ -1,0 +1,7 @@
+# Lokalni alati i snimci ne trebaju u Vercel deploymentu
+tools/
+shots/
+README.md
+render.yaml
+start.bat
+package-lock.json

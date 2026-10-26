@@ -112,6 +112,7 @@ const game = {
   joinCounter: 0,
   seq: 0,
   startedAt: 0,
+  lastTickAt: 0,
 };
 
 
@@ -191,7 +192,7 @@ function buildGroups() {
     const storedId = game.groupLeaders.get(g.id);
     const stored = g.members.find(m => m.id === storedId);
     if (stored) {
-      const offline = stored.connections <= 0 && (t - stored.lastActiveAt > 25000);
+      const offline = !SERVERLESS && stored.connections <= 0 && (t - stored.lastActiveAt > 25000);
       if (!offline) leader = stored;
     }
     if (!leader) {
@@ -910,7 +911,7 @@ function botPickInvest(p) {
   return null;
 }
 
-function runBots(t) {
+function runBots(t, dtMs) {
   const bots = [...game.players.values()].filter(p => p.isBot);
   if (!bots.length) return;
 
@@ -951,7 +952,7 @@ function runBots(t) {
     if (!canAct()) continue;
     const r = game.round;
     if (r === 1) {
-      p.taps = Math.min(TAP_MAX, p.taps + p.tapRate * 0.2);
+      p.taps = Math.min(TAP_MAX, p.taps + p.tapRate * ((dtMs || 200) / 1000));
       continue;
     }
     if (p.botRound !== r) { p.botRound = r; p.botAt = t + rint(1200, 5000); }
@@ -1102,12 +1103,26 @@ function playerState(p, canAdmin) {
 
 /* -------------------------------- LAN URL --------------------------------- */
 /* Na hosted platformama (Render i sl.) adresa dolazi iz env varijable. */
-const HOSTED_URL = (process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || '').trim().replace(/\/+$/, '');
-const HOSTED = !!HOSTED_URL || process.env.HOSTED === '1';
+function withScheme(v) {
+  if (!v) return '';
+  return /^https?:\/\//.test(v) ? v : 'https://' + v;
+}
+const HOSTED_URL = withScheme(
+  process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL ||
+  process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL
+).trim().replace(/\/+$/, '');
+const HOSTED = !!HOSTED_URL || process.env.HOSTED === '1' || !!process.env.VERCEL;
+const SERVERLESS = !!process.env.VERCEL || process.env.TRANSPORT === 'poll';
 const ADMIN_PIN = (process.env.ADMIN_PIN || '').trim();
+let _joinOverride = '';
+function setJoinHost(host, proto) {
+  if (!host || _joinOverride) return;
+  _joinOverride = ((proto || 'https') + '://' + host).replace(/\/+$/, '') + '/';
+}
 
 let _lanCache = { at: 0, url: '' };
 function lanUrl() {
+  if (_joinOverride) return _joinOverride;
   if (HOSTED_URL) return HOSTED_URL + '/';
   if (now() - _lanCache.at < 5000 && _lanCache.url) return _lanCache.url;
   const pref = a => /^192\.168\./.test(a) ? 0 : /^10\./.test(a) ? 1 : /^172\.(1[6-9]|2\d|3[01])\./.test(a) ? 2 : 3;
@@ -1304,20 +1319,8 @@ async function handleApi(req, res, url) {
 
   if (req.method === 'POST' && pathname === '/api/join') {
     const body = await readBody(req);
-    if (game.phase !== 'lobby') {
-      return json(res, 409, { error: 'Igra je već počela. Sačekaj novu rundu.' });
-    }
-    if (game.players.size >= MAX_PLAYERS) {
-      return json(res, 409, { error: 'Sala je puna (60 firmi).' });
-    }
-    const rawName = String(body.name || '').trim().slice(0, 24);
-    const finalName = rawName ? uniqueName(rawName) : null;
-    const p = addPlayer(finalName, false);
-    p.lastActiveAt = now();
-    game.groupLeaders.set(p.groupId, p.id);
-    console.log(`[join] ${p.name} (${game.players.size} firmi)`);
-    newNews(`Nova firma na tržištu: ${p.name}`, 'join');
-    return json(res, 200, { id: p.id, token: p.token, name: p.name, color: p.color });
+    const r = doJoin(body.name);
+    return json(res, r.status, r.body);
   }
 
   if (req.method === 'POST' && pathname === '/api/act') {
@@ -1340,46 +1343,131 @@ async function handleApi(req, res, url) {
     if (!adminAllowed(req)) return json(res, 403, { error: 'Admin je dozvoljen samo sa računara domaćina.' });
     const body = await readBody(req);
     if (!checkAdminPin(body, url)) return json(res, 403, { error: 'Pogrešan admin PIN.', pinRequired: true });
-    const action = body.action;
-    if (action === 'start') {
-      if (game.phase !== 'lobby') return json(res, 409, { error: 'Igra je već počela.' });
-      if (game.players.size < 1) return json(res, 409, { error: 'Nema igrača.' });
-      game.startedAt = now();
-      startRound(1);
-    } else if (action === 'next') {
-      if (game.phase === 'round') finishRound();
-      else if (game.phase === 'results') advance();
-    } else if (action === 'pause') {
-      if (!game.paused && (game.phase === 'round' || game.phase === 'results') && game.endsAt) {
-        game.paused = true;
-        game.pausedAt = now();
-      }
-    } else if (action === 'resume') {
-      if (game.paused) {
-        const delta = now() - game.pausedAt;
-        game.endsAt += delta;
-        game.paused = false;
-      }
-    } else if (action === 'bots') {
-      if (game.phase !== 'lobby') return json(res, 409, { error: 'Botovi se dodaju u lobiju.' });
-      const count = clamp(Number(body.count) || 8, 1, 40);
-      for (let i = 0; i < count; i++) {
-        if (game.players.size >= MAX_PLAYERS) break;
-        const p = addPlayer(null, true);
-        p.botMergeAt = 0;
-        newNews(`Demo firma: ${p.name}`, 'join');
-      }
-    } else if (action === 'reset') {
-      resetGame(!!body.clear);
-    } else if (action === 'end') {
-      if (game.phase === 'round' || game.phase === 'results') finalize();
-    } else {
-      return json(res, 400, { error: 'Nepoznata admin akcija.' });
-    }
-    return json(res, 200, { ok: true, phase: game.phase, round: game.round });
+    const r = doAdmin(body);
+    return json(res, r.status, r.body);
   }
 
   return json(res, 404, { error: 'nepoznata ruta' });
+}
+
+/* ------------------------------ ADMIN AKCIJE ------------------------------ */
+function doAdmin(body) {
+  const action = body && body.action;
+  if (action === 'start') {
+    if (game.phase !== 'lobby') return { status: 409, body: { error: 'Igra je već počela.' } };
+    if (game.players.size < 1) return { status: 409, body: { error: 'Nema igrača.' } };
+    game.startedAt = now();
+    startRound(1);
+  } else if (action === 'next') {
+    if (game.phase === 'round') finishRound();
+    else if (game.phase === 'results') advance();
+  } else if (action === 'pause') {
+    if (!game.paused && (game.phase === 'round' || game.phase === 'results') && game.endsAt) {
+      game.paused = true;
+      game.pausedAt = now();
+    }
+  } else if (action === 'resume') {
+    if (game.paused) {
+      const delta = now() - game.pausedAt;
+      game.endsAt += delta;
+      game.paused = false;
+    }
+  } else if (action === 'bots') {
+    if (game.phase !== 'lobby') return { status: 409, body: { error: 'Botovi se dodaju u lobiju.' } };
+    const count = clamp(Number(body.count) || 8, 1, 40);
+    for (let i = 0; i < count; i++) {
+      if (game.players.size >= MAX_PLAYERS) break;
+      const p = addPlayer(null, true);
+      p.botMergeAt = 0;
+      newNews(`Demo firma: ${p.name}`, 'join');
+    }
+  } else if (action === 'reset') {
+    resetGame(!!body.clear);
+  } else if (action === 'end') {
+    if (game.phase === 'round' || game.phase === 'results') finalize();
+  } else {
+    return { status: 400, body: { error: 'Nepoznata admin akcija.' } };
+  }
+  return { status: 200, body: { ok: true, phase: game.phase, round: game.round } };
+}
+
+/* --------------------------------- JOIN ----------------------------------- */
+function doJoin(rawName) {
+  if (game.phase !== 'lobby') return { status: 409, body: { error: 'Igra je već počela. Sačekaj novu rundu.' } };
+  if (game.players.size >= MAX_PLAYERS) return { status: 409, body: { error: 'Sala je puna (60 firmi).' } };
+  const name = String(rawName || '').trim().slice(0, 24);
+  const finalName = name ? uniqueName(name) : null;
+  const p = addPlayer(finalName, false);
+  p.lastActiveAt = now();
+  game.groupLeaders.set(p.groupId, p.id);
+  console.log(`[join] ${p.name} (${game.players.size} firmi)`);
+  newNews(`Nova firma na tržištu: ${p.name}`, 'join');
+  return { status: 200, body: { id: p.id, token: p.token, name: p.name, color: p.color } };
+}
+
+/* --------------------- SERVERLESS: SERIJALIZACIJA STANJA ------------------ */
+function exportState() {
+  const g = game;
+  return {
+    v: 1,
+    phase: g.phase, round: g.round, endsAt: g.endsAt, paused: g.paused, pausedAt: g.pausedAt,
+    players: [...g.players.values()],
+    groupLeaders: [...g.groupLeaders.entries()],
+    news: g.news, newsSeq: g.newsSeq,
+    offers: g.offers, offerSeq: g.offerSeq,
+    votes: [...g.votes.entries()],
+    voteCandidates: g.voteCandidates, results: g.results,
+    hhiHistory: g.hhiHistory, roundEvents: g.roundEvents, final: g.final,
+    joinCounter: g.joinCounter, seq: g.seq, startedAt: g.startedAt, lastTickAt: g.lastTickAt,
+  };
+}
+
+function importState(s) {
+  if (!s || typeof s !== 'object') return false;
+  const g = game;
+  g.phase = s.phase || 'lobby';
+  g.round = s.round || 0;
+  g.endsAt = s.endsAt || 0;
+  g.paused = !!s.paused;
+  g.pausedAt = s.pausedAt || 0;
+  g.players = new Map((s.players || []).map(p => [p.id, p]));
+  g.groupLeaders = new Map(s.groupLeaders || []);
+  g.news = s.news || [];
+  g.newsSeq = s.newsSeq || 0;
+  g.offers = s.offers || [];
+  g.offerSeq = s.offerSeq || 0;
+  g.votes = new Map(s.votes || []);
+  g.voteCandidates = s.voteCandidates || [];
+  g.results = s.results || null;
+  g.hhiHistory = s.hhiHistory || [];
+  g.roundEvents = s.roundEvents || [];
+  g.final = s.final || null;
+  g.joinCounter = s.joinCounter || 0;
+  g.seq = s.seq || 0;
+  g.startedAt = s.startedAt || 0;
+  g.lastTickAt = s.lastTickAt || 0;
+  return true;
+}
+
+/* Lijeni "tik": zamjena za setInterval petlju lokalnog servera. */
+function serverlessTick(t) {
+  const ts = t || now();
+  const dt = Math.max(0, ts - (game.lastTickAt || ts));
+  game.lastTickAt = ts;
+  if (game.paused) return;
+  if (game.phase === 'round') {
+    let left = Math.min(dt, 5000);
+    while (left > 0 && game.phase === 'round') {
+      runBots(ts, Math.min(200, left));
+      left -= 200;
+    }
+    expireOffers();
+  }
+  for (let i = 0; i < 3; i++) {
+    if (game.phase === 'round' && game.endsAt && ts >= game.endsAt) finishRound();
+    else if (game.phase === 'results' && game.endsAt && ts >= game.endsAt) advance();
+    else break;
+  }
 }
 
 /* ------------------------------- RESET ------------------------------------ */
@@ -1449,19 +1537,21 @@ const server = http.createServer(async (req, res) => {
 });
 
 /* -------------------------------- TIKOVI ---------------------------------- */
-setInterval(() => {
-  const t = now();
-  if (game.paused) return;
-  if (game.phase === 'round' && game.endsAt && t >= game.endsAt) {
-    finishRound();
-  } else if (game.phase === 'results' && game.endsAt && t >= game.endsAt) {
-    advance();
-  }
-  expireOffers();
-  runBots(t);
-}, 200);
+if (require.main === module) {
+  setInterval(() => {
+    const t = now();
+    if (game.paused) return;
+    if (game.phase === 'round' && game.endsAt && t >= game.endsAt) {
+      finishRound();
+    } else if (game.phase === 'results' && game.endsAt && t >= game.endsAt) {
+      advance();
+    }
+    expireOffers();
+    runBots(t);
+  }, 200);
 
-setInterval(broadcast, 300);
+  setInterval(broadcast, 300);
+}
 
 function listen(port, attempt) {
   attempt = attempt || 0;
@@ -1495,7 +1585,33 @@ function listen(port, attempt) {
     }
   });
 }
-listen(PORT_START);
+if (require.main === module) {
+  listen(PORT_START);
+  process.on('uncaughtException', e => console.error('[uncaught]', e));
+  process.on('unhandledRejection', e => console.error('[unhandled]', e));
+}
 
-process.on('uncaughtException', e => console.error('[uncaught]', e));
-process.on('unhandledRejection', e => console.error('[unhandled]', e));
+/* ------------------------------- EXPORT ZA VERCEL -------------------------- */
+module.exports = {
+  game,
+  commonState,
+  playerState,
+  handleAction,
+  doAdmin,
+  doJoin,
+  resetGame,
+  exportState,
+  importState,
+  serverlessTick,
+  setJoinHost,
+  findPlayerByToken,
+  addPlayer,
+  newNews,
+  lanUrl,
+  adminAllowed,
+  checkAdminPin,
+  adminAllowedHosted: adminAllowed,
+  HOSTED,
+  SERVERLESS,
+  ADMIN_PIN,
+};

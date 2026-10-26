@@ -6,9 +6,15 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "open": "node server.js --open"
+    "open": "node server.js --open",
+    "dev:serverless": "node tools/serverless-dev.js",
+    "test": "node tools/test-flow.js",
+    "shots": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/shots.ps1"
   },
   "engines": {
     "node": ">=18"
+  },
+  "dependencies": {
+    "@upstash/redis": "^1.40.0"
   }
 }
