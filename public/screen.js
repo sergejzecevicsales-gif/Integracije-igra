@@ -550,14 +550,16 @@ function updateOverlay() {
       const survived = last >= maxH * 0.98;
       let arc;
       if (survived) {
-        arc = `Za 6 minuta tržište je otišlo od konkurencije (HHI <b>${fmt0(first)}</b>) do oligopola ` +
-          `(HHI <b>${fmt0(maxH)}</b>), a Komisija ga nije oborila — najveća grupa je preživjela.`;
+        arc = `Za 6 minuta tržište je otišlo od konkurencije (HHI <b>${fmt0(first)}</b>) do <b>monopola</b> ` +
+          `(HHI <b>${fmt0(maxH)}</b>) — najveća grupa je preživjela, a Komisija je nije mogla zaustaviti. ` +
+          `Rast udjela je hranio dalji rast.`;
       } else if (dropped) {
-        arc = `Vi ste za 6 minuta napravili tržište od konkurencije (HHI <b>${fmt0(first)}</b>) do oligopola ` +
-          `(HHI <b>${fmt0(maxH)}</b>) — i nazad na HHI <b>${fmt0(last)}</b>.`;
+        arc = `Rast je za 6 minuta doveo tržište od konkurencije (HHI <b>${fmt0(first)}</b>) do monopola ` +
+          `(HHI <b>${fmt0(maxH)}</b>); Komisija je tek na kraju oborila koncentraciju na HHI <b>${fmt0(last)}</b> — ` +
+          `prekasno da promijeni priču.`;
       } else {
-        arc = `Za 6 minuta tržište je otišlo od konkurencije (HHI <b>${fmt0(first)}</b>) do oligopola ` +
-          `(HHI <b>${fmt0(maxH)}</b>), a Komisija ga je spustila samo na HHI <b>${fmt0(last)}</b> — najveća grupa je preživjela.`;
+        arc = `Rast je za 6 minuta doveo tržište od konkurencije (HHI <b>${fmt0(first)}</b>) do monopola ` +
+          `(HHI <b>${fmt0(maxH)}</b>), a Komisija je kaznila manju grupu — najveća je preživjela na HHI <b>${fmt0(last)}</b>.`;
       }
       story.innerHTML = arc + ` Isti pragovi kao na slajdu: <b>1.000</b> i <b>2.000</b>.`;
     }

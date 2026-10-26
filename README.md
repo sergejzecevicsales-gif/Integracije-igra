@@ -7,7 +7,7 @@ telefoni: [trziste-uzivo.vercel.app](https://trziste-uzivo.vercel.app/)
 
 Multiplayer igra za predavanje o tržišnim strukturama, konkurenciji i koncentraciji.
 Studenti osnivaju firme na telefonima i 6–7 minuta igraju na tržištu od **10.000 kupaca**,
-a profesor na projektoru gleda kako tržište klizi iz konkurencije u oligopol — i nazad.
+a profesor na projektoru gleda kako tržište klizi iz konkurencije u monopol.
 
 * **Projektor / računar:** veliki ekran sa tržištem, HHI mjeračem, rang listom i vijestima
 * **Telefoni:** svaki student vodi svoju firmu (5 rundi)
@@ -47,8 +47,8 @@ a profesor na projektoru gleda kako tržište klizi iz konkurencije u oligopol �
 | **R1 Borba za kupce** | **25 s (tajmer)** | tapkaju i otimaju kupce | krug se dijeli na 30 komada, HHI ~330 |
 | **R2 Cjenovni rat** | ručno | biraju nisku/srednju/visoku cijenu | HHI blago raste, priča o zatvorenikovoj dilemi |
 | **R3 Investicije** | ručno | reklama / inovacija / štednja | otkriva se čije su inovacije uspjele |
-| **R4 Spajanja** | ručno | zovu, pregovaraju, spajaju se | krug se skuplja u par velikih komada, **HHI u crveno** |
-| **R5 Komisija** | ručno | glasaju koju grupu zabraniti | raspad grupe, **HHI pada nazad** |
+| **R4 Spajanja** | ručno | spajaju se; svako spajanje donosi **+12% kupaca** | krug se skuplja, **HHI u crveno → monopol** |
+| **R5 Komisija** | ručno | glasaju koju grupu zabraniti | Komisija sudi; često nema kvorum — **monopol ostaje** |
 | Kraj | — | gledaju finale | pobjedničko postolje + graf HHI kroz igru |
 
 **Tajmer ima samo runda tapkanja (R1).** Sve ostale runde, kao i svaki ekran sa rezultatima,
@@ -93,6 +93,9 @@ Trošak se odbija odmah; ishod inovacije se otkriva na projektoru na kraju runde
   Tako nastaju velike grupe u nekoliko sekundi — zato HHI skače u crveno.
 * Grupe se mogu spajati dalje. **Samo lider grupe** šalje i prihvata ponude.
 * Spajanje objedinjuje kapital i kupce. Lider ostaje onaj ko je inicirao spajanje.
+* **Tržišna moć (ključno!)** — svako spajanje donosi grupi **+12% kupaca** na račun rivala.
+  Ti kupci se dijele članovima grupe, pa **tvoja firma raste čim se grupa širi**.
+  Rast udjela hrani dalji rast → koncentracija ide samo gore, ka monopolu.
 
 ### Runda 5 — Komisija (ručno)
 
@@ -100,15 +103,16 @@ Trošak se odbija odmah; ishod inovacije se otkriva na projektoru na kraju runde
 * Na glasačkom listiću su **4 najveće grupe**; zabranjuje se ona sa najviše glasova.
 * Zabranjena grupa se **raspada na firme kakve su bile prije spajanja** i plaća kaznu
   od **30% kapitala**.
-* Ako jedna grupa drži **više od 60% tržišta**, Komisija je raspada po službenoj dužnosti
-  (da priča uvijek ima poentu — tako je i u stvarnoj politici konkurencije).
+* **Regulatorno zarobljavanje:** ako najveća grupa ima **više od polovine svih firmi**,
+  Komisija **nema kvorum** — članovi su većina i monopol ostaje.
+  (Tako igra pokazuje da regulacija stiže prekasno, kad je tržište već zarobljeno.)
 
 ### Kraj
 
 **Vrijednost firme = kapital + kupci × 100.000 KM.** Pobjednik je grupa sa najvećom
 vrijednošću. Na projektoru se prikaže postolje i graf HHI kroz svih 5 rundi, sa pragovima
-**1.000** i **2.000** — ista skala kao na slajdu: *„Za 6 minuta napravili ste tržište
-od konkurencije do oligopola, i nazad.“*
+**1.000** i **2.000** — ista skala kao na slajdu: *„Za 6 minuta tržište je otišlo od
+konkurencije do monopola — rast je uvijek vodio ka sve većoj koncentraciji.“*
 
 ---
 
@@ -143,7 +147,7 @@ Konstante su na vrhu `server.js`:
 | Pragovi HHI | 1.000 (konkurencija) / 2.000 (oligopol) |
 | HHI | `Σ (udio_grupe × 100)²` |
 
-HHI kroz tipičnu igru: **~330–500 → 1.000+ → 4.000–6.000 (crveno) → 800–1.300** poslije Komisije.
+HHI kroz tipičnu igru: **~330–500 → 1.000+ → 4.000–8.000 (monopol)**; poslije Komisije ostaje visoko ako najveća grupa ima većinu firmi.
 
 ---
 
@@ -218,10 +222,13 @@ Svi snimci (lobi, sve runde, rezultati, finale) su u folderu `shots/`.
 3. **R2:** poslije runde pročitaj ko je oborio cijenu: „Ovo je zatvorenikova dilema.
    Niska cijena je isplativa pojedincu — dok je svi ne izaberu.“
 4. **R3:** otkrij inovacije: „Inovacija je rizik. Reklama je sigurna, ali skuplja po kupcu.“
-5. **R4:** Dok se spajaju, pričaj o koncentraciji: „Krug se skuplja, HHI ide u crveno.“
-6. **R5:** Komisija: „Isti problem kao u stvarnosti — kako kazniti firmu koja je prevelika?“
+5. **R4:** Dok se spajaju, pričaj o rastu: „Svako spajanje donosi +12% kupaca grupi.
+   Veći postaje još veći — zato krug klizi ka jednom igraču.“
+6. **R5:** Komisija: „Kako kazniti firmu koja je prevelika? Ako je većina firmi u njoj,
+   Komisija nema kvorum — regulacija stiže prekasno.“
 7. **Finale:** graf HHI: „Za šest minuta prošli ste cijelu priču sa slajda: od konkurencije
-   do oligopola — i nazad. To je ono što radi politika konkurencije.“
+   do monopola. Rast je uvijek vodio ka sve većoj koncentraciji — a regulacija je stigla
+   tek kad je tržište već bilo zarobljeno.“
 
 ---
 

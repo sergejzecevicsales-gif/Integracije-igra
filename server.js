@@ -31,13 +31,14 @@ const HHI_HIGH = 2000;
 const MAX_PLAYERS = 60;
 const OFFER_TTL = 12000;         // ponuda za spajanje važi 12 s
 const OFFER_COOLDOWN = 5000;     // pauza između ponuda iste firme
+const MERGE_POWER = 0.12;        // tržišna moć: svako spajanje grupi donosi +12% kupaca (od rivala)
 
 const ROUNDS = [
   null,
   { n: 1, key: 'tap',    title: 'Borba za kupce', sub: 'Svako tapkanje je kupac',            dur: 25, results: 11 },
   { n: 2, key: 'price',  title: 'Cjenovni rat',    sub: 'Niska, srednja ili visoka cijena?',  dur: 20, results: 13 },
   { n: 3, key: 'invest', title: 'Investicije',    sub: 'Reklama, inovacija ili štednja?',     dur: 20, results: 14 },
-  { n: 4, key: 'merge',  title: 'Spajanja',       sub: 'Dogovaraj se — ili kupi konkurenciju',dur: 50, results: 13 },
+  { n: 4, key: 'merge',  title: 'Spajanja',       sub: `Spajanje grupi donosi +${Math.round(MERGE_POWER * 100)}% kupaca`, dur: 50, results: 13 },
   { n: 5, key: 'vote',   title: 'Komisija',       sub: 'Koga zabraniti?',                    dur: 25, results: 15 },
 ];
 
@@ -69,6 +70,7 @@ const META = {
   hhiHigh: HHI_HIGH,
   maxTaps: TAP_MAX,
   offerTtl: OFFER_TTL,
+  mergePower: MERGE_POWER,
   prices: PRICE_ORDER.map(k => ({ ...PRICES[k] })),
   investments: INVEST_ORDER.map(k => ({ ...INVESTS[k] })),
   rounds: ROUNDS.slice(1).map(r => ({ n: r.n, key: r.key, title: r.title, sub: r.sub, dur: r.dur })),
@@ -236,6 +238,7 @@ function computeHhi(groups) {
 function hhiZone(hhi) {
   if (hhi < HHI_LOW) return 'konkurencija';
   if (hhi <= HHI_HIGH) return 'umjereno';
+  if (hhi >= 4000) return 'monopol';
   return 'oligopol';
 }
 
@@ -579,10 +582,18 @@ function finishMerge() {
   const big = groups[0];
   if (big) lines.push(`Najveća grupa: ${big.name} — ${big.memberCount} firmi, ${pct(big.share)} tržišta, vrijednost ${fmt1(big.score)} mil KM`);
   lines.push(`Sa ${groups.reduce((s, g) => s + g.memberCount, 0)} firmi na ${groups.length} grupa.`);
-  lines.push('Spajanje ne mijenja kupce — mijenja KONCENTRACIJU. Isti kupci, manje igrača koji odlučuju o cijeni.');
+  const powerGain = merges.reduce((s, m) => s + (m.power || 0), 0);
+  if (powerGain > 0) {
+    lines.push(`Tržišna moć: spajanja su najvećim grupama donijela +${fmt0(powerGain)} kupaca na račun rivala.`);
+  }
+  lines.push(`Pravilo: svako spajanje grupi donosi +${Math.round(MERGE_POWER * 100)}% kupaca. Rast udjela hrani dalji rast — zato koncentracija ide samo gore.`);
   newNews(`Runda 4: ${merges.length} spajanja · ${groups.length} grupa na tržištu`, 'merge');
+  const topShare = groups[0] ? groups[0].share : 0;
+  const headline = merges.length
+    ? (topShare >= 0.7 ? `${merges.length} spajanja — tržište je postalo monopol` : `${merges.length} spajanja — tržište se skuplja`)
+    : 'Nema spajanja';
   return {
-    headline: merges.length ? `${merges.length} spajanja — tržište se skuplja` : 'Nema spajanja',
+    headline,
     lines,
     table: groups.slice(0, 5).map(g => ({
       name: g.name, color: g.color,
@@ -619,42 +630,38 @@ function finishVote() {
   const lines = [];
   lines.push(`Glasalo je ${votesCast} od ${players.length} firmi.`);
   let banned = null;
+  const biggest = preGroups[0];
+  // Regulatorno zarobljavanje: kad najveća grupa drži većinu firmi, Komisija nema kvorum.
+  const blocked = !!biggest && biggest.memberCount > players.length / 2;
+
   if (candidates.length >= 2) {
     const ranked = candidates.map(c => ({ ...c, votes: tally.get(c.groupId) || 0 }))
       .sort((a, b) => b.votes - a.votes || b.score - a.score);
-    const voteWinner = ranked[0].votes > 0 ? ranked[0] : null;
     for (const c of ranked) lines.push(`${c.name}: ${c.votes} glasova — ${c.members} firmi, ${pct(c.share)} tržišta`);
     const tied = ranked.filter(c => c.votes === ranked[0].votes);
-    if (voteWinner && tied.length > 1) {
-      lines.push(`Neriješeno (${ranked[0].votes} glasova) — presuđuje veličina grupe.`);
-    }
-    const all = groupList();
-    const dominant = all.find(g => g.memberCount > 1 && g.share > 0.6);
-    if (dominant && (!voteWinner || voteWinner.groupId !== dominant.id)) {
-      banned = {
-        groupId: dominant.id, name: dominant.name, color: dominant.color,
-        votes: tally.get(dominant.id) || 0, members: dominant.memberCount, auto: true,
-      };
-      lines.push(`${dominant.name} kontroliše ${pct(dominant.share)} tržišta — Komisija po službenoj dužnosti zabranjuje dominantnu grupu.`);
-      newNews(`KOMISIJA: dominantna grupa ${dominant.name} (${pct(dominant.share)}) je raspuštena!`, 'ban');
-      breakupGroup(dominant.id);
-    } else if (voteWinner) {
-      banned = voteWinner;
-      breakupGroup(banned.groupId);
-      lines.push(`Komisija je zabranila ${banned.name}. Grupa se raspada na firme kakve su bile prije spajanja, uz kaznu od 30% kapitala.`);
-      newNews(`KOMISIJA: ${banned.name} je zabranjena! Grupa se raspada, kazna 30% kapitala.`, 'ban');
+    if (tied.length > 1) lines.push(`Neriješeno (${ranked[0].votes} glasova) — presuđuje veličina grupe.`);
+
+    if (blocked) {
+      lines.push(`${biggest.name} ima ${biggest.memberCount} od ${players.length} firmi — većina je u najvećoj grupi, Komisija nema kvorum za zabranu.`);
+      lines.push(`Monopol ostaje: rast je prešao tačku poslije koje ga regulacija ne može zaustaviti.`);
+      newNews(`KOMISIJA: nema kvorum — ${biggest.name} (${pct(biggest.share)} tržišta, ${biggest.memberCount} firmi) ostaje!`, 'ban');
     } else {
-      lines.push('Nije bilo dovoljno glasova — niko nije zabranjen.');
+      const voteWinner = ranked[0].votes > 0 ? ranked[0] : null;
+      if (voteWinner) {
+        banned = voteWinner;
+        breakupGroup(banned.groupId);
+        lines.push(`Komisija je zabranila ${banned.name}. Grupa se raspada na firme kakve su bile prije spajanja, uz kaznu od 30% kapitala.`);
+        newNews(`KOMISIJA: ${banned.name} je zabranjena! Grupa se raspada, kazna 30% kapitala.`, 'ban');
+      } else {
+        lines.push('Nije bilo dovoljno glasova — niko nije zabranjen. Monopol ostaje.');
+      }
     }
   } else {
-    const all = groupList();
-    if (all.length === 1 && all[0].memberCount > 1) {
-      const only = all[0];
-      lines.push('Na tržištu je ostala samo jedna grupa — Komisija nema koga da bira, pa monopol raspada po službenoj dužnosti.');
-      breakupGroup(only.id);
-      lines.push(`${only.name} se raspada na firme kakve su bile prije spajanja, uz kaznu od 30% kapitala.`);
-      newNews(`KOMISIJA: monopol ${only.name} je raspušten po službenoj dužnosti!`, 'ban');
-      banned = { groupId: only.id, name: only.name, color: only.color, votes: 0, members: only.memberCount, auto: true };
+    const only = preGroups[0];
+    if (only && only.memberCount > 1) {
+      lines.push(`Na tržištu je samo jedna grupa — ${only.name} je monopol (${only.memberCount} firmi, ${pct(only.share)} tržišta).`);
+      lines.push('Komisija ga ne može razbiti: sve firme su već u njemu. Rast je završio u monopolu.');
+      newNews(`KOMISIJA: ${only.name} je jedina grupa — monopol ostaje!`, 'ban');
     } else {
       lines.push('Nema dovoljno grupa za glasanje — Komisija nije nikoga zabranila.');
     }
@@ -820,16 +827,46 @@ function mergeGroups(o, fromGroup, toGroup, kind) {
     if (off.status !== 'pending' || off.id === o.id) continue;
     if (off.toGroupId === toGroup.id || off.fromGroupId === toGroup.id) off.status = 'expired';
   }
+  // TRŽIŠNA MOĆ: spojena grupa privlači kupce od rivala — zato rast vodi u monopol.
+  const power = applyMergePower(fromGroup.id);
   const nh = buildGroups();
   const g = nh.get(fromGroup.id);
   const share = g ? g.customers / TOTAL_CUSTOMERS : 0;
-  const ev = { type: 'merge', kind, from: fromGroup.name, to: toGroup.name, members: g ? g.memberCount : all.length, at: t };
+  const ev = { type: 'merge', kind, from: fromGroup.name, to: toGroup.name, members: g ? g.memberCount : all.length, at: t, power: power.gain };
   game.roundEvents.push(ev);
   const text = kind === 'join'
     ? `${toGroup.name} se pridružuje ${fromGroup.name}`
     : `${fromGroup.name} preuzima ${toGroup.name}`;
   newNews(`${text} — ${ev.members} firmi, ${pct(share)} tržišta`, 'merge');
-  console.log(`[spajanje] ${fromGroup.name} + ${toGroup.name} -> ${ev.members} firmi (${pct(share)})`);
+  if (power.gain > 0) {
+    newNews(`Tržišna moć: ${fromGroup.name} +${fmt0(power.gain)} kupaca od rivala — grupa sada drži ${pct(share)} tržišta`, 'merge');
+  }
+  console.log(`[spajanje] ${fromGroup.name} + ${toGroup.name} -> ${ev.members} firmi (${pct(share)}), moć +${power.gain}`);
+}
+
+/* Tržišna moć: veća grupa privlači kupce manjih (mrežni efekat / ekonomija obima).
+   Gubitak ide proporcionalno od svih rivala, dobit proporcionalno članovima grupe. */
+function applyMergePower(groupId) {
+  const players = [...game.players.values()];
+  const groups = buildGroups();
+  const g = groups.get(groupId);
+  if (!g || !g.members.length) return { gain: 0 };
+  const memberIds = new Set(g.members.map(p => p.id));
+  const gTotal = g.customers;
+  const others = players.filter(p => !memberIds.has(p.id));
+  const othersTotal = others.reduce((s, p) => s + p.customers, 0);
+  if (gTotal <= 0 || othersTotal <= 0) return { gain: 0 };
+  const take = Math.min(gTotal * MERGE_POWER, othersTotal * 0.5);
+  if (take < 1) return { gain: 0 };
+  const weights = players.map(p => {
+    if (memberIds.has(p.id)) {
+      return { id: p.id, w: p.customers + take * (p.customers / gTotal) };
+    }
+    return { id: p.id, w: Math.max(0, p.customers * (1 - take / othersTotal)) };
+  });
+  const alloc = allocateCustomers(weights);
+  for (const p of players) p.customers = alloc.get(p.id) || 0;
+  return { gain: Math.round(take) };
 }
 
 function expireOffers() {

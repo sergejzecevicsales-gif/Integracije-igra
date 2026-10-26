@@ -141,10 +141,12 @@ function hintText() {
 
 function updateStats() {
   const me = S.me;
+  const inGroup = me.group && me.group.members > 1;
+  const rank = (inGroup && me.groupRank) ? me.groupRank : me.rank;
   $('statCapital').textContent = fmt1(me.capital);
   $('statCustomers').textContent = fmt0(me.customers);
-  $('statShare').textContent = pct(me.share);
-  $('statRank').textContent = me.rank ? '#' + me.rank : '—';
+  $('statShare').textContent = pct(inGroup ? me.group.share : me.share);
+  $('statRank').textContent = rank ? '#' + rank : '—';
 }
 
 /* -------------------------------- STAGE ----------------------------------- */
@@ -421,7 +423,7 @@ function buildMerge() {
 
     root.append(h('div', { class: 'round-head' },
       h('h2', {}, 'Spajanja'),
-      h('p', {}, 'Pregovarajte uživo, pa pošaljite ponudu. Spajanje objedinjuje kapital i kupce — i pravi metu za Komisiju.')
+      h('p', {}, 'Pregovarajte, pa pošaljite ponudu. Svako spajanje grupi donosi +' + Math.round((S.meta.mergePower || 0.12) * 100) + '% kupaca od rivala — veći rast znači više kupaca.')
     ));
 
     // grupa
@@ -657,13 +659,19 @@ function buildFinal() {
   const me = S.me;
   const place = me.groupRank || me.rank;
   const winner = S.final && S.final.winner;
+  const inGroup = me.group && me.group.members > 1;
+  const value = inGroup ? me.group.score : me.score;
+  const note = inGroup
+    ? 'Vrijednost kompanije = sve firme u grupi (' + me.group.members + '). Tvoja firma: ' +
+      fmt0(me.customers) + ' kupaca i ' + fmt1(me.capital) + ' mil kapitala — kupci su rasli sa grupom.'
+    : 'Vrijednost = kapital + kupci × 100.000 KM. Završio si sa ' + fmt0(me.customers) +
+      ' kupaca i ' + fmt1(me.capital) + ' mil kapitala.';
   const root = h('div', { class: 'final-box' },
     h('div', { class: 'final-place-num' }, '#' + place),
     h('div', { class: 'final-place' }, place + '. mjesto'),
-    h('div', { class: 'final-label' }, 'vrijednost firme'),
-    h('div', { class: 'final-value' }, fmt1(me.score) + ' mil'),
-    h('div', { class: 'final-note' }, 'Vrijednost = kapital + kupci × 100.000 KM. ' +
-      'Završio si sa ' + fmt0(me.customers) + ' kupaca i ' + fmt1(me.capital) + ' mil kapitala.'),
+    h('div', { class: 'final-label' }, inGroup ? 'vrijednost kompanije' : 'vrijednost firme'),
+    h('div', { class: 'final-value' }, fmt1(value) + ' mil'),
+    h('div', { class: 'final-note' }, note),
     h('div', { class: 'final-winner' }, winner ? ['Pobjednik: ', h('b', {}, winner.name + ' (' + fmt1(winner.score) + ' mil)')] : ''),
     h('div', { class: 'note' }, 'Pogledaj grafikon HHI na projektoru — to je cijela priča ove igre.')
   );
