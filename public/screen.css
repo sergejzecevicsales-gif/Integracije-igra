@@ -624,3 +624,47 @@
   .gauge-axis span { font-size: 9.5px; }
   .gauge-zones span { font-size: 8.5px; letter-spacing: 0.1em; }
 }
+
+/* ------------------------------ ANALIZA (finale) -------------------------- */
+.final-head-actions { display: flex; align-items: center; gap: 10px; }
+.explain-card { width: min(1240px, 94vw); }
+.explain-actions { display: flex; gap: 10px; }
+.explain-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 20px 0 18px; }
+.explain-step {
+  border: 1px solid var(--line);
+  background: #faf9f6;
+  border-radius: 12px;
+  padding: 22px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+.es-num {
+  font-family: var(--mono);
+  font-size: 36px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--muted-2);
+}
+.es-title { font-size: 20px; font-weight: 800; letter-spacing: -0.025em; line-height: 1.15; }
+.explain-step p { font-size: 15px; line-height: 1.55; color: #333; }
+.explain-step b { color: #000; }
+.es-formula {
+  margin-top: auto;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+.explain-story {
+  border: 1px solid var(--line-2);
+  background: #fff;
+  padding: 18px 22px;
+  font-size: 15.5px;
+  line-height: 1.6;
+  color: #222;
+}
+.explain-story b { color: #000; }

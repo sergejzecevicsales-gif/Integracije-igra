@@ -93,6 +93,8 @@ Trošak se odbija odmah; ishod inovacije se otkriva na projektoru na kraju runde
   Tako nastaju velike grupe u nekoliko sekundi — zato HHI skače u crveno.
 * Grupe se mogu spajati dalje. **Samo lider grupe** šalje i prihvata ponude.
 * Spajanje objedinjuje kapital i kupce. Lider ostaje onaj ko je inicirao spajanje.
+* Na telefonu svaka ponuda pokazuje **procjenu isplate**: vrijednost kompanije nakon spajanja
+  i sopstveni rast kupaca (+12%), da bi igrač odmah vidio zašto mu se spajanje isplati.
 * **Tržišna moć (ključno!)** — svako spajanje donosi grupi **+12% kupaca** na račun rivala.
   Ti kupci se dijele članovima grupe, pa **tvoja firma raste čim se grupa širi**.
   Rast udjela hrani dalji rast → koncentracija ide samo gore, ka monopolu.
@@ -208,6 +210,7 @@ render.yaml          — Render Blueprint (pun Node server)
 ![Projektor — runda 4, spajanja](shots/11-round4.png)
 ![Telefon — ponude za spajanje](shots/12-phone-merge.png)
 ![Finale — HHI kroz igru](shots/17-final.png)
+![Analiza — kako je radilo](shots/19-analiza.png)
 
 Svi snimci (lobi, sve runde, rezultati, finale) su u folderu `shots/`.
 
@@ -229,6 +232,9 @@ Svi snimci (lobi, sve runde, rezultati, finale) su u folderu `shots/`.
 7. **Finale:** graf HHI: „Za šest minuta prošli ste cijelu priču sa slajda: od konkurencije
    do monopola. Rast je uvijek vodio ka sve većoj koncentraciji — a regulacija je stigla
    tek kad je tržište već bilo zarobljeno.“
+8. **Analiza (dugme KAKO JE RADILO):** tri koraka sa brojevima iz upravo odigrane igre —
+   spajanje = +12% kupaca, koncentracija = HHI, regulacija = kazna koja ne vraća tržište.
+   Ovo je trenutak u kojem studenti sami izvode zaključak.
 
 ---
 

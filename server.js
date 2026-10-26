@@ -112,6 +112,8 @@ const game = {
   results: null,
   hhiHistory: [],
   roundEvents: [],
+  mergeStats: { count: 0, powerGain: 0 },
+  commission: null,
   final: null,
   joinCounter: 0,
   seq: 0,
@@ -238,7 +240,7 @@ function computeHhi(groups) {
 function hhiZone(hhi) {
   if (hhi < HHI_LOW) return 'konkurencija';
   if (hhi <= HHI_HIGH) return 'umjereno';
-  if (hhi >= 4000) return 'monopol';
+  if (hhi >= 3500) return 'monopol';
   return 'oligopol';
 }
 
@@ -390,6 +392,8 @@ function finalize() {
   const winner = groups[0] || null;
   const hs = game.hhiHistory;
   const maxHhi = hs.reduce((m, h) => Math.max(m, h.hhi), 0);
+  const firstHhi = hs.length ? hs[0].hhi : 0;
+  const mergeStats = game.mergeStats || { count: 0, powerGain: 0 };
   game.final = {
     winner: winner ? {
       name: winner.name, color: winner.color, score: winner.score,
@@ -402,8 +406,12 @@ function finalize() {
     })),
     hhiHistory: hs.slice(),
     maxHhi,
+    merges: mergeStats.count,
+    powerGain: mergeStats.powerGain,
+    topShare: winner ? winner.share : 0,
+    commission: game.commission || null,
     story: hs.length
-      ? `Za ${Math.round((now() - (game.startedAt || now())) / 1000)} s tržište je otišlo od konkurencije do oligopola i nazad.`
+      ? `Rast je za ${Math.round((now() - (game.startedAt || now())) / 1000)} s doveo tržište od konkurencije (HHI ${firstHhi}) do monopola (HHI ${maxHhi}).`
       : '',
   };
   game.phase = 'final';
@@ -673,6 +681,11 @@ function finishVote() {
     }
   }
   if (banned) lines.push(`Za 25 sekundi rasprave tržište se vratilo na ${groupList().length} firmi. To je moć konkurencijske politike.`);
+  game.commission = {
+    blocked: !!blocked,
+    banned: banned ? { name: banned.name, share: banned.share || 0, members: banned.members || 1 } : null,
+    top: biggest ? { name: biggest.name, share: biggest.share, members: biggest.memberCount } : null,
+  };
   const tableItems = candidates.map(c => ({
     groupId: c.groupId, name: c.name, color: c.color, members: c.members,
     share: c.share, votes: tally.get(c.groupId) || 0,
@@ -829,6 +842,8 @@ function mergeGroups(o, fromGroup, toGroup, kind) {
   }
   // TRŽIŠNA MOĆ: spojena grupa privlači kupce od rivala — zato rast vodi u monopol.
   const power = applyMergePower(fromGroup.id);
+  game.mergeStats.count++ ;
+  game.mergeStats.powerGain += power.gain;
   const nh = buildGroups();
   const g = nh.get(fromGroup.id);
   const share = g ? g.customers / TOTAL_CUSTOMERS : 0;
@@ -1110,14 +1125,21 @@ function playerState(p, canAdmin) {
   const groupRank = sortedGroups.findIndex(g => g.id === p.groupId) + 1;
   const firms = [...game.players.values()].sort((a, b) => score(b) - score(a));
   const rank = firms.findIndex(x => x.id === p.id) + 1;
+  const groupById = new Map(groups.map(g => [g.id, g]));
   const incoming = game.offers
     .filter(o => o.status === 'pending' && (o.open ? o.fromGroupId !== p.groupId : o.toGroupId === p.groupId))
-    .map(o => ({
-      ...publicOffer(o),
-      canRespond: !!mine && mine.leader.id === p.id && (o.open ? o.fromGroupId !== mine.id : true),
-      isMine: o.fromGroupId === p.groupId,
-      msLeft: Math.max(0, o.expiresAt - now()),
-    }));
+    .map(o => {
+      const fg = groupById.get(o.fromGroupId);
+      return {
+        ...publicOffer(o),
+        canRespond: !!mine && mine.leader.id === p.id && (o.open ? o.fromGroupId !== mine.id : true),
+        isMine: o.fromGroupId === p.groupId,
+        msLeft: Math.max(0, o.expiresAt - now()),
+        fromGroupScore: fg ? fg.score : 0,
+        fromGroupMembers: fg ? fg.memberCount : 1,
+        fromGroupCustomers: fg ? fg.customers : 0,
+      };
+    });
   const outgoing = game.offers.find(o => o.status === 'pending' && o.fromGroupId === p.groupId);
   return {
     ...base,
@@ -1465,7 +1487,8 @@ function exportState() {
     offers: g.offers, offerSeq: g.offerSeq,
     votes: [...g.votes.entries()],
     voteCandidates: g.voteCandidates, results: g.results,
-    hhiHistory: g.hhiHistory, roundEvents: g.roundEvents, final: g.final,
+    hhiHistory: g.hhiHistory, roundEvents: g.roundEvents,
+    mergeStats: g.mergeStats, commission: g.commission, final: g.final,
     joinCounter: g.joinCounter, seq: g.seq, startedAt: g.startedAt, lastTickAt: g.lastTickAt,
   };
 }
@@ -1489,6 +1512,8 @@ function importState(s) {
   g.results = s.results || null;
   g.hhiHistory = s.hhiHistory || [];
   g.roundEvents = s.roundEvents || [];
+  g.mergeStats = s.mergeStats || { count: 0, powerGain: 0 };
+  g.commission = s.commission || null;
   g.final = s.final || null;
   g.joinCounter = s.joinCounter || 0;
   g.seq = s.seq || 0;
@@ -1539,6 +1564,8 @@ function resetGame(clearPlayers) {
   game.votes.clear();
   game.voteCandidates = [];
   game.roundEvents = [];
+  game.mergeStats = { count: 0, powerGain: 0 };
+  game.commission = null;
   game.final = null;
   game.startedAt = 0;
   game.groupLeaders.clear();

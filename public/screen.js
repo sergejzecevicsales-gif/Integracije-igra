@@ -10,6 +10,8 @@ if (QS.get('pin')) localStorage.setItem(PIN_KEY, QS.get('pin'));
 let S = null;
 let offset = 0;
 let overlayKey = '';
+let explainMode = false;
+const FORCE_ANALYSIS = (() => { try { return new URLSearchParams(location.search).has('analysis'); } catch (e) { return false; } })();
 let boardKey = '';
 let boardRows = new Map();
 let newsKey = '';
@@ -390,9 +392,11 @@ function updateTimer() {
 /* -------------------------------- OVERLAY -------------------------------- */
 function renderOverlay() {
   const phase = S.phase;
+  if (phase !== 'final') explainMode = false;
+  if (phase === 'final' && FORCE_ANALYSIS) explainMode = true;
   const key = phase === 'lobby' ? 'lobby'
     : phase === 'results' ? 'results:' + S.round
-      : phase === 'final' ? 'final' : 'none';
+      : phase === 'final' ? (explainMode ? 'explain' : 'final') : 'none';
   const ov = $('overlay');
   if (key === 'none') {
     ov.classList.add('hidden');
@@ -405,6 +409,7 @@ function renderOverlay() {
   overlayKey = key;
   if (key === 'lobby') ov.innerHTML = lobbyHTML();
   else if (key === 'final') ov.innerHTML = finalHTML();
+  else if (key === 'explain') ov.innerHTML = explainHTML();
   else ov.innerHTML = resultsHTML();
   wireOverlay();
   updateOverlay();
@@ -503,11 +508,68 @@ function finalHTML() {
         <div class="final-title"><span>${escapeXml(f.winner ? f.winner.name : '—')}</span> pobjeđuje</div>
         <div class="final-sub">vrijednost = kapital + kupci × 100.000 KM</div>
       </div>
-      <button class="btn btn-primary" id="ovAgain">NOVA IGRA</button>
+      <div class="final-head-actions">
+        <button class="btn" id="ovExplain">KAKO JE RADILO</button>
+        <button class="btn btn-primary" id="ovAgain">NOVA IGRA</button>
+      </div>
     </div>
     <div class="podium">${podHTML}</div>
     <div class="chart-wrap"><svg id="finalChart" viewBox="0 0 1000 260" preserveAspectRatio="xMidYMid meet"></svg></div>
     <div class="final-story" id="finalStory"></div>
+  </div>`;
+}
+
+function explainHTML() {
+  const f = S.final || {};
+  const hs = f.hhiHistory || [];
+  const first = hs.length ? hs[0].hhi : 0;
+  const last = hs.length ? hs[hs.length - 1].hhi : 0;
+  const w = f.winner;
+  const cm = f.commission || {};
+  const merges = f.merges || 0;
+  const power = f.powerGain || 0;
+  let comm;
+  if (cm.blocked) {
+    comm = `<b>nije imala kvorum</b> — najveća grupa držala je ${cm.top ? fmt0(cm.top.members) : '?'} firmi, većinu, pa je glasanje blokirano.`;
+  } else if (cm.banned) {
+    comm = `kaznila je <b>${escapeXml(cm.banned.name)}</b> (${pct(cm.banned.share)} tržišta), a <b>${escapeXml(cm.top ? cm.top.name : 'najveća grupa')}</b> (${pct(cm.top ? cm.top.share : 0)} tržišta) je preživjela.`;
+  } else {
+    comm = 'nije nikoga kaznila — glasovi se nisu skupili, monopol je ostao.';
+  }
+  return `
+  <div class="ov-card explain-card">
+    <div class="res-top">
+      <div class="res-kicker">Analiza · kako je ovo radilo</div>
+      <div class="explain-actions">
+        <button class="btn" id="ovExplainBack">NAZAD</button>
+        <button class="btn btn-primary" id="ovAgain2">NOVA IGRA</button>
+      </div>
+    </div>
+    <h2 class="res-headline">Rast je vodio u monopol</h2>
+    <div class="explain-grid">
+      <div class="explain-step">
+        <div class="es-num">1</div>
+        <div class="es-title">Spajanje = rast kupaca</div>
+        <p>Svako spajanje donosi <b>+12% kupaca</b> svakom članu grupe. U ovoj igri bilo je
+        <b>${fmt0(merges)} spajanja</b>, koja su najvećim grupama donijela <b>+${fmt0(power)} kupaca</b>.</p>
+        <div class="es-formula">tvoji kupci × 1,12</div>
+      </div>
+      <div class="explain-step">
+        <div class="es-num">2</div>
+        <div class="es-title">Koncentracija = moć</div>
+        <p>Isti kupci, manje igrača. HHI je skočio sa <b>${fmt0(first)}</b> na <b>${fmt0(last)}</b>,
+        a pobjednik drži <b>${pct(w ? w.share : 0)}</b> tržišta.</p>
+        <div class="es-formula">HHI = Σ (udio × 100)²</div>
+      </div>
+      <div class="explain-step">
+        <div class="es-num">3</div>
+        <div class="es-title">Regulacija stiže prekasno</div>
+        <p>Komisija ${comm}</p>
+        <div class="es-formula">kazna 30% kapitala ≠ vraćanje tržišta</div>
+      </div>
+    </div>
+    <div class="explain-story">Zato: <b>veći udio → više kupaca → još veći udio → monopol.</b>
+    Rast se sam pojačava, a regulacija djeluje tek kad je tržište već zarobljeno.</div>
   </div>`;
 }
 
@@ -573,6 +635,12 @@ function wireOverlay() {
   if (bots) bots.onclick = () => admin('bots', { count: 10 });
   const again = document.getElementById('ovAgain');
   if (again) again.onclick = () => admin('reset');
+  const explain = document.getElementById('ovExplain');
+  if (explain) explain.onclick = () => { explainMode = true; overlayKey = ''; renderOverlay(); };
+  const explainBack = document.getElementById('ovExplainBack');
+  if (explainBack) explainBack.onclick = () => { explainMode = false; overlayKey = ''; renderOverlay(); };
+  const again2 = document.getElementById('ovAgain2');
+  if (again2) again2.onclick = () => admin('reset');
 }
 
 /* ------------------------------- GRAFIKON -------------------------------- */

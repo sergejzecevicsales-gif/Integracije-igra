@@ -105,6 +105,7 @@ Post '/api/admin' @{ action = 'next' } | Out-Null
 Start-Sleep -Milliseconds 800
 Shot '17-final' ($base + '/screen?snap=1') 1920 1080
 Shot '18-phone-final' ($base + '/?token=' + $p1.token + '&snap=1') 500 1000
+Shot '19-analiza' ($base + '/screen?snap=1&analysis=1') 1920 1080
 
 Write-Host ''
 Write-Host 'Gotovo. Snimci su u shots'

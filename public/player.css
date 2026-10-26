@@ -487,3 +487,12 @@ body.player {
   .join-logo h1 { font-size: 29px; }
   .round-head h2 { font-size: 22px; }
 }
+
+/* --------------------------- tržišna moć / rast --------------------------- */
+.merge-gain {
+  color: var(--text);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  border-left: 2px solid var(--text);
+  padding-left: 10px;
+}

@@ -145,7 +145,7 @@ function updateStats() {
   const rank = (inGroup && me.groupRank) ? me.groupRank : me.rank;
   $('statCapital').textContent = fmt1(me.capital);
   $('statCustomers').textContent = fmt0(me.customers);
-  $('statShare').textContent = pct(inGroup ? me.group.share : me.share);
+  $('statValue').textContent = fmt1(inGroup ? me.group.score : me.score);
   $('statRank').textContent = rank ? '#' + rank : '—';
 }
 
@@ -420,6 +420,13 @@ function buildMerge() {
     const g = me.group;
     const inc = (me.incoming || []).filter(o => !o.isMine);
     refs = {};
+    const mp = S.meta.mergePower || 0.12;
+    const cv = S.meta.customerValue || 0.15;
+    const gainC = Math.round(me.customers * mp);
+    const gainV = gainC * cv;
+    const gainText = gainC > 0
+      ? '+' + Math.round(mp * 100) + '% kupaca (≈ +' + fmt0(gainC) + ') · +' + fmt1(gainV) + ' mil KM'
+      : 'spajanje donosi +' + Math.round(mp * 100) + '% kupaca';
 
     root.append(h('div', { class: 'round-head' },
       h('h2', {}, 'Spajanja'),
@@ -434,13 +441,14 @@ function buildMerge() {
         h('div', { class: 'gp-name' }, g.name),
         h('div', { class: 'gp-meta' }, g.members + ' firmi: ' + (g.memberNames || []).join(', ')),
         h('div', { class: 'gp-meta' }, 'Lider: ' + g.leaderName + (g.isLeader ? ' (ti)' : '') + ' · udio ' + pct(g.share) + ' · vrijednost ' + fmt1(g.score) + ' mil'),
-        h('div', { class: 'gp-meta' }, 'Zajedno imate ' + fmt0(g.customers) + ' kupaca i ' + fmt1(g.capital) + ' mil kapitala.')
+        h('div', { class: 'gp-meta' }, 'Zajedno imate ' + fmt0(g.customers) + ' kupaca i ' + fmt1(g.capital) + ' mil kapitala.'),
+        h('div', { class: 'gp-meta' }, 'Svako novo spajanje: ' + gainText + ' svakom članu.')
       );
     } else {
       gp.append(
         h('div', { class: 'gp-name' }, me.name),
         h('div', { class: 'gp-meta' }, 'Samostalna firma · ' + fmt0(me.customers) + ' kupaca · ' + fmt1(me.capital) + ' mil kapitala'),
-        h('div', { class: 'gp-meta' }, 'Još nisi u grupi. Spajanje ti može donijeti kupce i kapital — ali i pažnju Komisije.')
+        h('div', { class: 'gp-meta' }, 'Ako prihvatiš spajanje: ' + gainText + '. Zato se isplati biti u većoj grupi.')
       );
     }
     root.append(gp);
@@ -460,6 +468,11 @@ function buildMerge() {
           metaEl
         );
         if (o.canRespond) {
+          const afterValue = (o.fromGroupScore || 0) + me.score;
+          const dv = afterValue - me.score;
+          card.append(h('div', { class: 'note merge-gain' },
+            'Nakon spajanja: kompanija ≈ ' + fmt1(afterValue) + ' mil (' +
+            (dv >= 0 ? '+' : '') + fmt1(dv) + ' mil) · +' + fmt0(gainC) + ' kupaca'));
           const acts = h('div', { class: 'offer-actions' });
           const acc = h('button', { class: 'btn btn-accept', type: 'button' }, 'PRIHVATI');
           const rej = h('button', { class: 'btn btn-reject', type: 'button' }, 'ODBIJ');
@@ -484,6 +497,9 @@ function buildMerge() {
           : 'Ponuda poslata: ' + me.outgoing.toGroupName),
         refs.outMeta
       ));
+      if (me.outgoing.open) {
+        root.append(h('div', { class: 'note' }, 'Svako prihvatanje: ' + gainText + ' tebi'));
+      }
     }
 
     // akcije lidera
@@ -619,6 +635,11 @@ function buildResults() {
     if (lines.length >= 3) break;
     lines.push(l);
   }
+  const cv = S.meta.customerValue || 0.15;
+  const value = me.capital + me.customers * cv;
+  const prevValue = (me.prevCapital != null ? me.prevCapital : me.capital) +
+    (me.prevCustomers != null ? me.prevCustomers : me.customers) * cv;
+  const dVal = value - prevValue;
 
   root.append(
     h('div', { class: 'result-kicker' }, 'RUNDA ' + S.round + ' · ' + ((r.title || '').toUpperCase())),
@@ -627,6 +648,9 @@ function buildResults() {
     h('div', { class: 'rank-line' },
       h('span', {}, 'Tvoj plasman'),
       h('b', {}, '#' + me.rank + ' / ' + S.totals.players)
+    ),
+    h('div', { class: 'result-lines' },
+      h('li', {}, 'Vrijednost firme: ' + (dVal >= 0 ? '+' : '') + fmt1(dVal) + ' mil · sada ' + fmt1(value) + ' mil')
     )
   );
 
@@ -640,8 +664,8 @@ function buildResults() {
   if (S.round === 4 && me.group) {
     root.append(h('div', { class: 'result-lines' },
       h('li', {}, me.group.members > 1
-        ? 'Tvoja grupa: ' + me.group.name + ' (' + me.group.members + ' firmi) · ' + pct(me.group.share) + ' tržišta'
-        : 'Ostao si samostalna firma. U rundi 5 Komisija glasa.')
+        ? 'Tvoja grupa: ' + me.group.name + ' (' + me.group.members + ' firmi) · ' + pct(me.group.share) + ' tržišta · vrijednost ' + fmt1(me.group.score) + ' mil KM'
+        : 'Ostao si samostalna firma. U sljedećoj rundi Komisija glasa.')
     ));
   }
   if (S.round === 5 && r.headline) {
@@ -673,7 +697,7 @@ function buildFinal() {
     h('div', { class: 'final-value' }, fmt1(value) + ' mil'),
     h('div', { class: 'final-note' }, note),
     h('div', { class: 'final-winner' }, winner ? ['Pobjednik: ', h('b', {}, winner.name + ' (' + fmt1(winner.score) + ' mil)')] : ''),
-    h('div', { class: 'note' }, 'Pogledaj grafikon HHI na projektoru — to je cijela priča ove igre.')
+    h('div', { class: 'note' }, 'Profesor na projektoru otvara analizu: zašto je rast vodio u monopol.')
   );
   return { root, update: () => { } };
 }
@@ -681,12 +705,18 @@ function buildFinal() {
 /* ---------------------------------- AKCIJE -------------------------------- */
 async function act(payload) {
   if (!token) return null;
+  const beforeCustomers = S && S.me ? S.me.customers : 0;
   const res = await api('/api/act', Object.assign({ token }, payload));
   const data = res.data;
   if (data && data.state) {
+    const gained = (data.state.me ? data.state.me.customers : 0) - beforeCustomers;
     S = data.state;
     offset = S.serverNow - Date.now();
     render();
+    if (payload.type === 'respond' && gained > 0 && S.round === 4) {
+      const cv = S.meta.customerValue || 0.15;
+      toast('+' + fmt0(gained) + ' kupaca · +' + fmt1(gained * cv) + ' mil KM');
+    }
   } else if (data && data.ok === false && data.error) {
     toast(data.error);
   }

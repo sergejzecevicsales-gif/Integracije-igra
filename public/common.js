@@ -51,12 +51,12 @@ function zoneKey(hhi, meta) {
   return 'red';
 }
 function zoneName(hhi, meta) {
-  if (hhi >= 4000) return 'monopol';
+  if (hhi >= 3500) return 'monopol';
   const k = zoneKey(hhi, meta);
   return k === 'green' ? 'konkurencija' : k === 'yellow' ? 'umjereno' : 'oligopol';
 }
 function zoneHint(hhi, meta) {
-  if (hhi >= 4000) return 'monopol — jedna grupa kontroliše tržište';
+  if (hhi >= 3500) return 'monopol — jedna grupa kontroliše tržište';
   const k = zoneKey(hhi, meta);
   return k === 'green'
     ? 'konkurencija — mnogo malih firmi'
