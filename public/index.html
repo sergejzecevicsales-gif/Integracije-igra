@@ -1,67 +1,14 @@
 <!doctype html>
-<html lang="sr">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#060a14">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<title>TRŽIŠTE UŽIVO</title>
-<link rel="icon" href="/favicon.svg">
-<link rel="stylesheet" href="/shared.css">
-<link rel="stylesheet" href="/player.css">
-</head>
-<body class="player">
-
-  <!-- ============================ PRIJAVA ============================ -->
-  <div id="joinScreen" class="join-screen">
-    <div class="join-logo">
-      <div class="kicker"><span class="live-dot-small"></span> TRŽIŠTE UŽIVO</div>
-      <h1>Osnuj svoju firmu</h1>
-      <p>Dobijaš <b>50 miliona KM</b> kapitala. Na tržištu je <b>10.000 kupaca</b>.<br>5 rundi · 6–7 minuta.</p>
-    </div>
-    <form id="joinForm" class="join-form">
-      <label for="nameInput">Ime firme</label>
-      <input id="nameInput" maxlength="24" placeholder="npr. Alfa" autocomplete="off" autocapitalize="words" enterkeyhint="go">
-      <button class="btn btn-primary btn-big" id="joinBtn" type="submit">OSNUJ FIRMU</button>
-    </form>
-    <div class="join-status" id="joinStatus"></div>
-    <div class="join-foot">Kada se svi prijave, profesor pokreće igru.</div>
-  </div>
-
-  <!-- ============================== IGRA ============================= -->
-  <div id="app" class="app hidden">
-    <header class="app-head">
-      <div class="firm-chip">
-        <span class="firm-color" id="myDot"></span>
-        <span id="myName">—</span>
-        <span class="firm-color" id="myColor"></span>
-        <span class="badge hidden" id="leaderBadge">LIDER</span>
-      </div>
-      <div class="round-chip" id="roundChip">LOBI</div>
-      <div class="timer-badge num" id="myTimer">—</div>
-    </header>
-
-    <div class="stats-row">
-      <div class="stat"><b id="statCapital" class="num">50,0</b><span>kapital, mil</span></div>
-      <div class="stat"><b id="statCustomers" class="num">0</b><span>kupci</span></div>
-      <div class="stat"><b id="statValue" class="num">50,0</b><span>vrijednost</span></div>
-      <div class="stat"><b id="statRank" class="num">—</b><span>plasman</span></div>
-    </div>
-
-    <main id="stage" class="stage"></main>
-
-    <footer class="app-foot">
-      <div id="hint" class="hint">—</div>
-      <div class="conn" id="connDot">●</div>
-    </footer>
-  </div>
-
-  <div id="splash" class="splash hidden">
-    <div class="spinner"></div>
-    <div id="splashText">Povezivanje…</div>
-  </div>
-
-<script src="/common.js"></script>
-<script src="/player.js"></script>
-</body>
-</html>
+<html lang="bs"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f3f2ee"><title>Tržište uživo</title>
+<link rel="icon" href="/favicon.svg"><link rel="stylesheet" href="/shared.css"><link rel="stylesheet" href="/player.css">
+</head><body class="player">
+<header class="phone-head"><a class="wordmark" href="/">Tržište uživo</a><span id="connection" class="subtle" role="status">Povezivanje…</span></header>
+<main class="phone-main"><section id="joinScreen" class="join-screen">
+<div class="join-symbol" aria-hidden="true"><span></span><span></span><span></span></div>
+<h1>Tvoja firma.<br>Tvoja samostalnost.</h1><p>Pronađi partnera. Pregovaraj o udjelu. Razmisli kome prepuštaš kontrolu.</p>
+<form id="joinForm"><div class="person-fields"><div><label for="firstNameInput">Ime</label><input id="firstNameInput" name="given-name" maxlength="40" autocomplete="given-name" required></div><div><label for="lastNameInput">Prezime</label><input id="lastNameInput" name="family-name" maxlength="40" autocomplete="family-name" required></div></div><label for="nameInput">Kako se zove tvoja firma?</label><input id="nameInput" maxlength="24" autocomplete="organization" placeholder="npr. Brzi net" required><button class="btn primary full" id="joinBtn">Uđi na tržište</button></form>
+<p class="subtle join-foot">Ime i prezime se prikazuju uz firmu kako biste se lakše pronašli tokom pregovora.</p></section>
+<section id="app" class="hidden"><div id="identity" class="identity"></div><div id="stage"></div></section>
+<p id="error" class="error hidden" role="alert"></p></main>
+<script src="/common.js"></script><script src="/lesson.js"></script><script src="/player.js"></script></body></html>

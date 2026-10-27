@@ -8,7 +8,8 @@
     "start": "node server.js",
     "open": "node server.js --open",
     "dev:serverless": "node tools/serverless-dev.js",
-    "test": "node tools/test-flow.js",
+    "test": "node --test tools/test-engine.js",
+    "test:flow": "node tools/test-flow.js",
     "shots": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/shots.ps1"
   },
   "engines": {
@@ -16,6 +17,7 @@
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.0",
-    "@upstash/redis": "^1.40.0"
+    "@upstash/redis": "^1.40.0",
+    "qrcode": "^1.5.4"
   }
 }

@@ -51,17 +51,15 @@ function zoneKey(hhi, meta) {
   return 'red';
 }
 function zoneName(hhi, meta) {
-  if (hhi >= 3500) return 'monopol';
   const k = zoneKey(hhi, meta);
-  return k === 'green' ? 'konkurencija' : k === 'yellow' ? 'umjereno' : 'oligopol';
+  return k === 'green' ? 'niska koncentracija' : k === 'yellow' ? 'umjerena koncentracija' : 'visoka koncentracija';
 }
 function zoneHint(hhi, meta) {
-  if (hhi >= 3500) return 'monopol — jedna grupa kontroliše tržište';
   const k = zoneKey(hhi, meta);
   return k === 'green'
     ? 'konkurencija — mnogo malih firmi'
     : k === 'yellow' ? 'umjereno koncentrisano tržište'
-      : 'visoka koncentracija — oligopol';
+      : 'visoka koncentracija — provjeri broj nezavisnih ponuđača';
 }
 
 /* HTTP */
@@ -92,17 +90,33 @@ function pollStream(url, onState, onStatus, interval) {
     const t0 = Date.now();
     const res = await api(stateUrl);
     if (!alive) return;
+    if (res.status === 404 && stateUrl.includes('token=')) {
+      alive = false;
+      onState({ removed: true });
+      return;
+    }
     if (res.ok && res.data) {
       if (onStatus) onStatus('online');
       onState(res.data);
     } else if (onStatus) {
       onStatus('offline');
     }
-    const wait = Math.max(150, (interval || 800) - (Date.now() - t0));
+    // Kad je tab sakriven, pregledač usporava tajmere — zato brže provjeravamo
+    // da se na povratak na ekran (projektor/telefon) stanje odmah osvježi.
+    const hidden = typeof document !== 'undefined' && document.hidden;
+    const wait = hidden ? 400 : Math.max(150, (interval || 800) - (Date.now() - t0));
     timer = setTimeout(tick, wait);
   };
+  const onVisible = () => { if (alive && !document.hidden) tick(); };
+  if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVisible);
   tick();
-  return { close() { alive = false; clearTimeout(timer); } };
+  return {
+    close() {
+      alive = false;
+      clearTimeout(timer);
+      if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisible);
+    },
+  };
 }
 
 async function startStream(url, onState, onStatus) {

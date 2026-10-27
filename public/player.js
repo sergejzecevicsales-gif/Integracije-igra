@@ -1,774 +1,100 @@
 'use strict';
-/* ===================== TRŽIŠTE UŽIVO — TELEFON (IGRAČ) ===================== */
+const $=id=>document.getElementById(id);
+let token=new URLSearchParams(location.search).get('token')||localStorage.getItem('tzu_token');
+let S=null,stageKey='',stream=null,busy=false,connected=false,renderRevision=-1,draftTimer=null,draftSerial=0,identityMarkup='';
+function showError(message){$('error').textContent=message;$('error').classList.toggle('hidden',!message);}
+function forget(){token=null;localStorage.removeItem('tzu_token');if(stream)stream.close();stream=null;S=null;stageKey='';$('joinScreen').classList.remove('hidden');$('app').classList.add('hidden');$('connection').textContent='Pridruži se';}
+function setStatus(status){connected=status==='online';$('connection').textContent=connected?'Uživo':'Ponovno povezivanje…';updateControls();}
+async function connect(){if(stream)stream.close();stream=await startStream('/api/events?token='+encodeURIComponent(token),st=>{if(st.removed){forget();showError('Otvorena je nova sala. Prijavi firmu ponovo.');return;}render(st);},setStatus);}
+async function boot(){if(!token){$('connection').textContent='Pridruži se';return;}localStorage.setItem('tzu_token',token);const r=await api('/api/state?token='+encodeURIComponent(token)+'&fresh=1');if(r.status===404||r.status===401){forget();return;}if(r.ok)render(r.data);await connect();}
+$('joinForm').addEventListener('submit',async e=>{e.preventDefault();if(busy)return;busy=true;showError('');$('joinBtn').disabled=true;const r=await api('/api/join',{name:$('nameInput').value.trim(),firstName:$('firstNameInput').value.trim(),lastName:$('lastNameInput').value.trim()});busy=false;$('joinBtn').disabled=false;if(!r.ok||!r.data?.token){showError(r.data?.error||'Pokušaj ponovo.');return;}token=r.data.token;localStorage.setItem('tzu_token',token);await connect();});
+function lookup(){return '<div class="look-up"><strong>Pogledaj zajednički ekran.</strong><p>Domaćin otkriva posljedice i pokreće sljedeći korak.</p></div>';}
+function roleView(){const p=S.me,r=p.role;return `<h1>Imaš ${r.name.toLowerCase()}.<br>Šta ti nedostaje?</h1><p class="instruction">${esc(r.strength)} ${esc(r.problem)}</p><div class="business-sheet"><div><span>Trošak po kupcu</span><strong>${money(p.group.cost)}</strong></div><div><span>Tvoja kontrola</span><strong>Samostalan vlasnik</strong></div></div><h2 class="decision-title">Prvi potez</h2><div class="strategy-choices"><button class="strategy-choice" data-type="strategy" data-value="invest"><strong>Uloži ${money(p.investCost)}</strong><span>Tvoj procijenjeni dohodak: ${money(p.impact.invest.before)} → ${money(p.impact.invest.after)} / mj. Firma sada plaća ${money(p.investCost)}.</span></button><button class="strategy-choice" data-type="strategy" data-value="reserve"><strong>Sačuvaj novac</strong><span>Procjena dohotka ostaje ${money(p.impact.invest.before)} / mj. Novac zadržavaš za pregovore.</span></button></div><div id="saved" class="saved hidden" role="status"></div><p class="rule-note">Ova odluka se zaključava. Kad su cijene iste, firma s prednošću „Kupci” ima tri puta veću težinu pri podjeli kupaca.</p>`;}
+function termsHTML(o){const t=o.terms;if(o.kind==='access')return `${payoffHTML(o)}<div class="offer-terms"><div><span>Korištenje mreže</span><b>${esc(t.landlord)}</b></div><div><span>Naknada po kupcu</span><b>${money(o.fee)}</b></div><div><span>Ušteda korisnika ugovora</span><b>${money(t.saving)} po kupcu</b></div><div><span>Kontrola</span><b>Obje firme ostaju samostalne</b></div></div>`;return `${payoffHTML(o)}<div class="offer-terms"><div><span>Tvoj udio nakon spajanja</span><b>${fmt1(o.myShare)}%</b></div><div><span>Novac odmah za tebe</span><b>${money(t.cashPayouts[S.me.id]||0)}</b></div>${t.controllerId===S.me.id&&t.cash?`<div><span>Ti plaćaš drugoj strani</span><b>${money(t.cash)}</b></div>`:""}<div><span>Odluke donosi</span><b>${esc(t.controller)}</b></div><div><span>Trošak nove grupe</span><b>${fmt1(t.cost)} KM po kupcu</b></div></div><p class="consequence">${t.controllerId===S.me.id?'Ti zadržavaš kontrolu.':'Tvoj udio donosi profit. Cijenu će određivati '+esc(t.controller)+'.'}</p><p class="rule-note">Kasnija spajanja mogu smanjiti tvoj procenat udjela. Novi dogovor zaključuje onaj ko ima kontrolu.</p>`;}
+function payoffHTML(o){const f=o.terms.forecast;if(!f)return '';const id=S.me.id,delta=f.delta[id]||0,monthly=f.monthlyAfter[id]||0,cash=(o.terms.cashPayouts?.[id]||0)-(o.terms.controllerId===id?o.terms.cash:0);return `<div class="payoff-compare"><div><span>Tvoj dohodak bez dogovora</span><strong>${money(f.before[id]||0)} / mj</strong></div><div><span>Tvoj dohodak s dogovorom</span><strong>${money(monthly)} / mj</strong></div><div><span>Gotovina odmah</span><strong>${cash>=0?'+':''}${money(cash)}</strong></div><p class="${delta>=0?'gain-positive':'gain-negative'}">Ukupni procijenjeni efekat: ${delta>=0?'+':''}${money(delta)}</p></div><p class="rule-note">Dohodak je procjena tvog udjela profita. Gotovina je jednokratni transfer. ${o.kind==='access'?'Računica koristi sadašnje cijene, uz dogovorenu naknadu za infrastrukturu.':'Računica pretpostavlja sadašnje cijene rivala i cijenu nove grupe od '+money(f.price)+'.'}${f.remainingOwners===1?' Ovim dogovorom nestaje posljednji rival.':''}${f.losers?' '+f.losers+' članova bi po procjeni dobilo manje.':''}</p>`;}
+function effectHTML(){
+ const p=S.me,impact=p.impact;if(!impact||S.phase==='lobby')return '';
+ const kind=S.roundInfo?.kind,e=impact.lastEffect;
+ if(e?.kind==='payment')return `<strong>Ovaj mjesec pripalo ti je +${money(e.incomePaid)}.</strong><span>Mjesečni dohodak: ${money(e.monthlyBefore)} → ${money(e.monthlyAfter)}.</span>`;
+ if(impact.entry&&['results','final'].includes(S.phase))return `<strong>Uz stranog konkurenta: ${money(impact.entry.before)} → ${money(impact.entry.after)} / mj.</strong><span>Promjena buduće zarade. Već isplaćeni dohodak ostaje tvoj.</span>`;
+ if(e?.kind==='deal'||e?.kind==='strategy')return `<strong>${esc(e.label)}</strong><span>Procjena dohotka: ${money(e.monthlyBefore)} → ${money(e.monthlyAfter)} / mj${e.plannedPrice?' uz cijenu paketa '+money(e.plannedPrice):''}.</span><span>Novac firme: ${e.cashChange>=0?'+':''}${money(e.cashChange)}${e.shareBefore!==e.shareAfter?' · tvoj udio '+fmt1(e.shareBefore)+'% → '+fmt1(e.shareAfter)+'%':''}.</span>`;
+ if(kind==='ask')return `<strong>Traženi iznos još nije tvoja zarada.</strong><span>Novac dobijaš tek kada druga strana prihvati ponudu. Sadašnja procjena dohotka: ${money(impact.estimate)} / mj.</span>`;
+ if(kind==='price')return `<strong>${p.controls&&p.price!==null?'Uz cijenu '+money(p.price)+':':'Procjena prije odluke:'} ${money(impact.estimate)} / mj za tebe.</strong><span>Procjena koristi posljednje poznate cijene rivala. Isplata se računa pri otkrivanju.</span>`;
+ if(kind==='entry')return '<strong>Dolazi nova ponuda od 40 KM.</strong><span>Slijedi poređenje tvog dohotka prije i poslije ulaska konkurenta.</span>';
+ return `<strong>Procijenjeni naredni dohodak: ${money(impact.estimate)} / mj.</strong><span>${kind==='strategy'?'Ulaganje mijenja tvoj budući dohodak i raspoloživi novac.':'Uporedi ovu zaradu s ponudom prije nego pristaneš.'}</span>`;
+}
+function incomeHeader(){const p=S.me;return `<span class="identity-name">${dot(p.color)}<span><strong>${esc(p.fullName)}</strong><small>${esc(p.name)}</small></span></span>${S.phase==='lobby'?'':`<div class="income-primary"><span>Lični dohodak</span><strong>${money(p.personalIncome)}</strong><small>Ukupno ti je pripalo iz profita${S.scoreboard.periods?' · prosjek '+money(p.monthlyIncome)+' / mj':'; prva isplata tek slijedi'}.</small></div><div class="company-cash"><span>Novac firme</span><strong>${money(p.cash)}</strong></div><div class="step-effect" role="status">${effectHTML()}</div>`}`;}
+async function draftPreview(offerId){
+ clearTimeout(draftTimer);const serial=++draftSerial;if(!offerId&&!$('composer')?.open)return;
+ draftTimer=setTimeout(async()=>{
+  if(!S||S.phase!=='round'||S.roundInfo.kind!=='negotiate')return;
+  const original=offerId?S.offers.find(o=>o.id===offerId):null;
+  const target=offerId?'counterPreview-'+offerId:'draftPayoff',element=$(target);if(!element)return;
+  const payload=original?{type:'preview',offerId,share:Number($('counter-'+offerId)?.value),cash:Number($('counterCash-'+offerId)?.value||0),fee:Number($('counter-'+offerId)?.value)}:{type:'preview',target:$('target')?.value,kind:$('dealKind')?.value,share:Number($('share')?.value),cash:Number($('cashOffer')?.value),fee:Number($('fee')?.value)};
+  element.textContent='Računam tvoj dohodak…';
+  const r=await api('/api/act',{token,round:S.round,...payload});
+  if(serial!==draftSerial||!$(target))return;
+  if(!r.ok||!r.data?.ok){$(target).innerHTML=`<p class="draft-error">${esc(r.data?.error||'Računica trenutno nije dostupna.')}</p>`;return;}
+  $(target).innerHTML=r.data.preview.kind==='merge'?payoffHTML(r.data.preview):termsHTML(r.data.preview);
+ },300);
+}
 
-const $ = id => document.getElementById(id);
-const QS = new URLSearchParams(location.search);
+function personalStats(){return `<div class="personal-score"><div><span>Lični dobitak</span><strong>${money(S.me.gain)}</strong></div><div><span>Prosječna mjesečna zarada</span><strong>${money(S.me.monthlyIncome)}</strong></div></div>`;}
+function offerHTML(o){return `<article class="negotiation-offer" data-offer-id="${o.id}"><div class="offer-heading"><strong>${o.kind==='merge'?'Spajanje':'Ugovor o infrastrukturi'}</strong><span>${o.counters?'Kontraponuda':'Ponuda'}</span></div><p>${esc(o.fromName)} + ${esc(o.toName)}</p>${o.botNote?`<p class="bot-reason">${esc(o.botNote)}</p>`:""}${termsHTML(o)}${o.canRespond?`<div class="offer-buttons"><button class="btn primary" data-response="accept" data-offer="${o.id}">Prihvati</button><button class="btn" data-response="reject" data-offer="${o.id}">Odbij</button></div><details class="counter-box"><summary>Traži druge uslove</summary><label for="counter-${o.id}">${o.kind==='merge'?'Udio koji pripada '+esc(o.toName):'Naknada po kupcu'}</label>${o.kind==='merge'?`<select id="counter-${o.id}">${shareOptions(o.share)}</select>`:`<select id="counter-${o.id}">${feeOptions(o.fee)}</select>`}${o.kind==="merge"?`<label for="counterCash-${o.id}">Ukupna isplata drugoj strani odmah (KM)</label><input id="counterCash-${o.id}" type="number" min="0" max="${Math.floor(o.payerCash)}" step="1" value="${o.cash||0}" inputmode="numeric">`:""}<div id="counterPreview-${o.id}" class="draft-payoff" aria-live="polite"></div><button class="btn full" data-response="counter" data-offer="${o.id}">Pošalji kontraponudu</button></details>`:`<p class="rule-note">${S.me.controls?'Čeka se odgovor: '+esc(o.awaitingName)+'.':'Vlasnik pregovara. Razgovaraj s njim prije prihvatanja.'}</p>`}</article>`;}
+function shareOptions(selected=30){return Array.from({length:13},(_,i)=>10+i*5).map(v=>`<option value="${v}" ${v===selected?'selected':''}>${v}%</option>`).join('');}
+function feeOptions(selected=4){return [2,4,6].map(v=>`<option value="${v}" ${v===selected?'selected':''}>${v} KM</option>`).join('');}
+function composer(){const others=S.groups.filter(g=>g.id!==S.me.group.id);if(!S.me.controls||!others.length)return '';return `<details class="offer-composer" id="composer"><summary>Predloži dogovor</summary><form id="offerForm"><label for="target">S kojom firmom?</label><select id="target">${others.map(g=>`<option value="${g.id}">${esc(g.leaderName)} · ${esc(g.name)} · ${g.members} firmi · ${fmt1(g.cost)} KM trošak</option>`).join('')}</select><p id="sellerAsk" class="rule-note"></p><label for="dealKind">Šta predlažeš?</label><select id="dealKind"><option value="merge">Spajanje · ti zadržavaš kontrolu</option><option value="access">Ugovor o infrastrukturi · odvojene firme</option></select><div id="mergeFields"><label for="share">Koliki udio u novoj grupi nudiš drugoj strani?</label><select id="share">${shareOptions()}</select><label for="cashOffer">Novac koji ti plaćaš drugoj strani odmah (KM)</label><input id="cashOffer" type="number" min="0" max="${S.me.cash}" step="1" value="0" inputmode="numeric"><p class="cash-limit">Raspoloživo: ${money(S.me.cash)}.</p><p class="rule-note">Može biti 0 KM. Isplata ide članovima druge grupe prema njihovim sadašnjim udjelima. Udio svih tvojih sadašnjih članova proporcionalno se smanjuje. Druga strana može tražiti više.</p></div><div id="accessFields" class="hidden"><label for="fee">Naknada vlasniku infrastrukture, po kupcu</label><select id="fee">${feeOptions()}</select><p class="rule-note">Jedna firma mora imati infrastrukturu. Ugovor smanjuje trošak korištenja najviše 8 KM; naknada se plaća vlasniku mreže.</p></div><div id="draftPayoff" class="draft-payoff" aria-live="polite"></div><button class="btn primary full">Pošalji ponudu</button></form></details>`;}
+function negotiationView(){const p=S.me;return `<h1>${p.controls?S.roundInfo.key==='negotiate2'?'Još jedan dogovor.<br>Veća zarada?':'Dogovori svoju<br>veću zaradu.':'Prodao si dio samostalnosti.'}</h1><p class="instruction">${p.controls?'Pronađi partnera i dogovorite koliko ko dobija. Ponuda prikazuje tvoju računicu prije i poslije spajanja.':'Imaš '+fmt1(p.share)+'% profita grupe. Kontrolu ima '+esc(p.group.leaderName)+'. Razgovaraj s vlasnikom o sljedećem potezu.'}</p><div class="control-strip"><span>${esc(p.group.name)}</span><strong>${fmt1(p.share)}% tvog udjela</strong></div>${p.group.access?`<p class="contract-note">Ugovorena infrastruktura: ${esc(p.group.access.landlord)} · ${money(p.group.access.fee)} po kupcu. Tvoj efektivni trošak: ${fmt1(Math.max(8,p.group.cost-8)+p.group.access.fee)} KM.</p>`:""}<div id="negotiationFeedback" class="negotiation-feedback"></div><div id="offers"></div>${composer()}<details class="market-directory"><summary>Ko ima ono što ti treba?</summary><div id="directory"></div></details><p class="rule-note">Ušteda od spajanja je stvarna kada se spoje kupci i infrastruktura. Niko ne dobija kupce automatski.</p>`;}
+function priceView(){const p=S.me;return p.controls?`<h1>Tvoj potpis.<br>Tvoja cijena.</h1><p class="instruction">${S.groups.length===1?'Preuzeo si cijelo tržište. Nema drugog vlasnika koji može ponuditi nižu cijenu.':'Ostalo je '+S.groups.length+' nezavisnih vlasnika. Jeftiniji rival može privući kupce.'}</p><div class="control-strip"><span>Tvoj trošak po kupcu</span><strong>${fmt1(Math.max(8,p.group.cost-(p.group.access?8:0))+(p.group.access?.fee||0))} KM</strong></div><div id="pressure" class="pressure-note"></div><div class="choices">${S.meta.prices.map(v=>`<button class="price-choice" data-type="price" data-value="${v}" aria-pressed="false"><strong>${v} <small>KM</small></strong><span class="price-income">Tebi: ${money(p.impact.prices.find(x=>x.price===v)?.income||0)} / mj</span><small>Do ${fmt0(S.meta.budgets.filter(([budget])=>budget>=v).reduce((sum,[,count])=>sum+count,0))} kupaca može platiti</small></button>`).join('')}</div><div id="saved" class="saved hidden" role="status"></div><p class="rule-note">Kupci biraju najnižu pristupačnu cijenu. Prikazan je maksimalni broj onih koji mogu platiti, prije izbora rivala. Profit dijelite prema udjelima. Bez izbora koristi se 50 KM.</p>`:`<h1>Sada odlučuje<br>${esc(p.group.leaderName)}.</h1><p class="instruction">Tvoj udio je ${fmt1(p.share)}%. Zaradit ćeš dio profita, ali prihvaćenim dogovorom prepustio si postavljanje cijene.</p><p class="rule-note">Dogovoreni udio donosi dio profita. Isplatu vidiš na svom telefonu i leaderboardu kada se mjesec zaključi.</p>`;}
+function askView(){const p=S.me;if(!p.controls)return `<h1>Tvoj dogovor<br>već donosi prihod.</h1><p class="instruction">${esc(p.group.leaderName)} pregovara u ime grupe. Tvoj sadašnji udio je ${fmt1(p.share)}%. Razgovaraj s njim o uslovima sljedeće ponude.</p>${lookup()}`;return `<h1>Šta tražiš<br>za novi dogovor?</h1><p class="instruction">Objavi početne uslove: koliki udio nove grupe i koliko gotovine traži tvoja strana. U sljedećem koraku možeš prihvatiti i druge uslove.</p><form id="askForm"><label for="askShare">Udio za tvoju grupu</label><select id="askShare">${shareOptions(p.group.ask?.share||35)}</select><label for="askCash">Gotovina koju tražiš odmah (KM)</label><input id="askCash" type="number" min="0" max="1000000" step="1" value="${p.group.ask?.cash||0}"><button class="btn primary full">Objavi moje uslove</button></form><div id="saved" class="saved hidden" role="status"></div><p class="rule-note">Tražena cijena nije obavezujuća. Kupac može ponuditi više udjela umjesto novca koji nema.</p>`;}
 
-let token = QS.get('token') || localStorage.getItem('tzu_token') || null;
-if (QS.get('token')) localStorage.setItem('tzu_token', QS.get('token'));
+function entryView(){return `<h1>Tržište se otvara.</h1><p class="instruction">Strani operater ulazi s istim internet paketom za <b>40 KM</b>. Kupci sada imaju još jednu nezavisnu ponudu.</p><div class="foreign-offer"><strong>Novi strani operater</strong><span>40 KM / mjesečno</span></div><p class="result-question">Šta se mijenja za tvoju firmu i njene kupce?</p>${lookup()}`;}
 
-let S = null;
-let offset = 0;
-let stream = null;
-let stageKey = '';
-let stageRoot = null;
-let stageUpdate = null;
-let displayTaps = 0;
-let lastRoundSeen = -1;
-let toastTimer = null;
-let tapFlushFn = null;
+function resultsView(){const r=S.results,p=S.me;if(r.kind==='strategy')return `<h1>Sad pronađi<br>ono što ti fali.</h1><p class="instruction">Tvoj trošak je ${fmt1(p.group.cost)} KM. Na raspolaganju imaš ${money(p.cash)}. U sljedećem koraku razgovaraš s drugim firmama.</p>${lookup()}`;if(r.kind==='ask')return `<h1>Uslovi su objavljeni.</h1><p class="instruction">Sada vidi ko šta traži. Iskoristi zaradu za ponudu koja se isplati i tebi i drugoj strani.</p>${lookup()}`;if(r.kind==='negotiate')return `<h1>${p.controls?'Zadržao si kontrolu.':'Udio imaš.<br>Kontrolu nemaš.'}</h1><div class="business-sheet"><div><span>Tvoj udio</span><strong>${fmt1(p.share)}%</strong></div><div><span>Cijenu postavlja</span><strong>${esc(p.group.leaderName)}</strong></div><div><span>Trošak grupe</span><strong>${fmt1(p.group.cost)} KM</strong></div></div>${lookup()}`;if(r.kind==='price')return `<h1>${money(p.lastProfit)}<br>tvog profita.</h1><p class="instruction">Dobio si ${fmt1(p.share)}% profita svoje grupe. ${fmt0(S.market.excluded)} domaćinstava ne može priuštiti nijednu ponudu.</p><p class="result-question">Koju firmu sada možeš kupiti ili kome ponuditi bolji dogovor?</p>${lookup()}`;return `<h1>Novi izbor.<br>Isti internet.</h1><p class="instruction">Strani operater nudi paket za 40 KM. Uporedi profit svoje firme prije i poslije njegovog ulaska.</p><div class="business-sheet"><div><span>Tvoj dio profita prije</span><strong>${money(p.lastProfit)}</strong></div><div><span>Tvoj dio profita u novom poređenju</span><strong>${money(p.profitAfterEntry)}</strong></div><div><span>Domaćinstava sa internetom</span><strong>${fmt0(S.market.served)} → ${fmt0(S.entry.market.served)}</strong></div></div><p class="rule-note">Poređenje koristi iste domaće cijene. Novi operater može preuzeti kupce; ovaj prikaz ne mijenja novac koji si već zaradio.</p>${lookup()}`;}
 
-/* --------------------------------- START --------------------------------- */
+function finalView(){const p=S.me;return `<h1>Šta si zaradio?<br>Šta si prepustio?</h1><div class="business-sheet"><div><span>Lični dobitak</span><strong>${money(p.cash-p.initialCash)}</strong></div><div><span>Prosječna mjesečna zarada</span><strong>${money(p.monthlyIncome)}</strong></div><div><span>Udio u grupi</span><strong>${fmt1(p.share)}%</strong></div><div><span>Kontrola</span><strong>${p.controls?'Zadržana':'Kod '+esc(p.group.leaderName)}</strong></div></div><p class="instruction">Otvaranjem tržišta kupci su dobili novu ponudu od 40 KM. Kako to mijenja moć domaćih vlasnika?</p>${lookup()}`;}
+
+function bind(){
+ $('stage').querySelectorAll('[data-type]').forEach(btn=>btn.onclick=()=>act({type:btn.dataset.type,value:btn.dataset.type==='price'?Number(btn.dataset.value):btn.dataset.value}));
+ const ask=$('askForm');if(ask)ask.onsubmit=e=>{e.preventDefault();act({type:'ask',share:Number($('askShare').value),cash:Number($('askCash').value)});};
+ const kind=$('dealKind');if(kind)kind.onchange=()=>{$('mergeFields').classList.toggle('hidden',kind.value!=='merge');$('accessFields').classList.toggle('hidden',kind.value!=='access');draftPreview();};
+ const target=$('target');if(target)target.onchange=()=>{const g=S.groups.find(g=>g.id===target.value);if(g?.ask){$('share').value=g.ask.share;$('cashOffer').value=Math.min(g.ask.cash,Math.floor(S.me.cash));}const hint=$('sellerAsk');if(hint)hint.textContent=g?.ask?`${g.leaderName} traži ${g.ask.share}% i ${money(g.ask.cash)}. Ti imaš ${money(S.me.cash)}.`:'Uslovi još nisu objavljeni. Dogovorite ih razgovorom.';draftPreview();};
+ for(const id of ['share','cashOffer','fee']){const el=$(id);if(el)el.addEventListener('input',()=>draftPreview());}
+ if(target)target.onchange();
+ const composer=$('composer');if(composer)composer.addEventListener('toggle',()=>{if(composer.open)draftPreview();});
+ const form=$('offerForm');if(form)form.onsubmit=e=>{e.preventDefault();act({type:'offer',kind:$('dealKind').value,target:$('target').value,share:Number($('share').value),cash:Number($('cashOffer').value),fee:Number($('fee').value)});};
+}
+function render(st){
+ if(!st.me)return;S=st;$('joinScreen').classList.add('hidden');$('app').classList.remove('hidden');
+ const markup=incomeHeader();if(identityMarkup!==markup){identityMarkup=markup;$('identity').innerHTML=markup;}
+ const key=`${S.phase}:${S.round}:${S.paused}:${S.me.group?.id}:${S.me.controls}:${S.groups.map(g=>g.id).join(',')}:${S.round===1?S.me.strategy:''}:${JSON.stringify(S.me.group?.access)}`;
+ if(key!==stageKey){stageKey=key;renderRevision=-1;showError('');const html=S.phase==='lobby'?`<div class="waiting"><h1>Tvoja firma je spremna.</h1><p>Dobit ćeš jednu od tri prednosti: kupce, infrastrukturu ili kapital. Pročitaj svoj zadatak kada domaćin pokrene igru.</p>${lookup()}</div>`:S.phase==='final'?finalView():S.phase==='results'?resultsView():({strategy:roleView,negotiate:negotiationView,price:priceView,ask:askView,entry:entryView}[S.roundInfo.kind])();$('stage').innerHTML=(S.paused?'<div class="pause-message">Igra je pauzirana.</div>':'')+html;bind();}
+ if(S.roundInfo?.kind==='negotiate'&&S.phase==='round'&&renderRevision!==S.revision)updateNegotiation();
+ renderRevision=S.revision;updateControls();
+}
+function updateNegotiation(){
+ const container=$('offers');if(!container)return;const feedback=$('negotiationFeedback');if(feedback){feedback.textContent=S.me.negotiationNote||'';feedback.classList.toggle('hidden',!S.me.negotiationNote);}
+ const signature=JSON.stringify(S.offers.map(o=>[o.id,o.share,o.cash,o.fee,o.awaitingId,o.canRespond,o.botNote,o.terms.forecast?.after[S.me.id]]));
+ if(container.dataset.signature!==signature){
+  const edited=Object.fromEntries([...container.querySelectorAll('details[open] input,details[open] select')].map(el=>[el.id,el.value]));
+  const open=[...container.querySelectorAll('details[open]')].map(el=>el.closest('[data-offer-id]')?.dataset.offerId);
+  container.innerHTML=S.offers.length?S.offers.map(offerHTML).join(''):'<div class="no-offers">Nema ponuda na stolu. Razgovaraj s drugima ili predloži dogovor.</div>';container.dataset.signature=signature;
+  for(const id of open){const el=container.querySelector(`[data-offer-id="${id}"] details`);if(el)el.open=true;}
+  for(const [id,value]of Object.entries(edited)){if($(id))$(id).value=value;}
+  container.querySelectorAll('.counter-box input,.counter-box select').forEach(el=>el.addEventListener('input',()=>draftPreview(el.closest('[data-offer-id]').dataset.offerId)));
+  container.querySelectorAll('[data-response]').forEach(btn=>btn.onclick=()=>{const o=S.offers.find(o=>o.id===btn.dataset.offer),v=Number($('counter-'+o.id)?.value);act({type:'respond',offerId:o.id,decision:btn.dataset.response,...(o.kind==='merge'?{share:v,cash:Number($('counterCash-'+o.id)?.value||0)}:{fee:v})});});
+ }
+ const directory=$('directory');if(directory)directory.innerHTML=S.groups.map(g=>`<div class="directory-row"><strong>${dot(g.color)}${esc(g.leaderName)} · ${esc(g.name)}</strong><span>${g.roles.map(key=>S.meta.roles.find(r=>r.key===key).name).join(' + ')} · ${fmt1(g.cost)} KM po kupcu${g.ask?`<br>Traži ${g.ask.share}% + ${money(g.ask.cash)} odmah`:""}</span></div>`).join('');
+}
+function updateControls(){
+ if(!S||S.phase!=='round')return;
+ const p=S.me,kind=S.roundInfo.kind;
+ $('stage').querySelectorAll('button').forEach(btn=>{btn.disabled=busy||S.paused||!connected||!!btn.dataset.unaffordable||(kind==='strategy'&&!!p.strategy);});
+ $('stage').querySelectorAll('[data-type]').forEach(btn=>{const selected=kind==='strategy'?p.strategy===btn.dataset.value:kind==='price'?p.controls?String(p.price)===btn.dataset.value:p.pressure:kind==='customer'?p.purchase===btn.dataset.value:false;btn.classList.toggle('selected',selected);btn.setAttribute('aria-pressed',String(selected));});
+ const saved=$('saved');if(saved){let text='';if(kind==='strategy'&&p.strategy)text=p.strategy==='invest'?'Ulaganje je zaključeno. Trošak je niži za 6 KM.':'Novac ostaje u rezervi.';if(kind==='price'&&p.controls&&p.price!==null)text=`Sačuvano: ${money(p.price)}. Ti donosiš konačnu odluku.`;if(kind==='ask'&&p.group.ask)text=`Objavljeno: ${p.group.ask.share}% i ${money(p.group.ask.cash)}.`;if(kind==='customer'&&p.purchase)text=p.purchase==='skip'?'Ostaješ bez interneta.':'Odabrana ponuda je sačuvana.';saved.textContent=text;saved.classList.toggle('hidden',!text);}
+
+}
+async function act(payload){if(busy||!S||!connected)return;busy=true;showError('');updateControls();const r=await api('/api/act',{token,round:S.round,...payload});if(r.status===401||r.status===404){busy=false;forget();return;}if(!r.ok||!r.data?.ok)showError(r.data?.error||'Odluka nije sačuvana. Pokušaj ponovo.');if(r.data?.state)render(r.data.state);else{const st=await api('/api/state?token='+encodeURIComponent(token)+'&fresh=1');if(st.ok)render(st.data);}busy=false;updateControls();}
+window.addEventListener('online',async()=>{if(token&&!stream)await connect();});
+document.addEventListener('visibilitychange',async()=>{if(document.hidden||!token)return;const r=await api('/api/state?token='+encodeURIComponent(token)+'&fresh=1');if(r.status===404){forget();return;}if(r.ok)render(r.data);});
 boot();
-
-async function boot() {
-  if (!token) { showJoin(); return; }
-  if (SNAP) { showApp(); connect(); return; }
-  $('splash').classList.remove('hidden');
-  const res = await api('/api/state?token=' + encodeURIComponent(token));
-  if (!res.ok) {
-    token = null;
-    localStorage.removeItem('tzu_token');
-    $('splash').classList.add('hidden');
-    showJoin();
-    return;
-  }
-  showApp();
-  connect();
-  $('splash').classList.add('hidden');
-}
-
-function showJoin(msg) {
-  $('joinScreen').classList.remove('hidden');
-  $('app').classList.add('hidden');
-  if (msg) {
-    const st = $('joinStatus');
-    st.textContent = msg;
-    st.classList.remove('ok');
-  }
-}
-
-function showApp() {
-  $('joinScreen').classList.add('hidden');
-  $('app').classList.remove('hidden');
-}
-
-function connect() {
-  if (stream) return;
-  stream = startStream(
-    '/api/events?token=' + encodeURIComponent(token),
-    st => { S = st; offset = st.serverNow - Date.now(); onState(); },
-    status => {
-      const c = $('connDot');
-      c.classList.toggle('offline', status !== 'online');
-      c.title = status === 'online' ? 'veza radi' : 'veza prekinuta';
-    }
-  );
-}
-
-/* --------------------------------- PRIJAVA -------------------------------- */
-$('joinForm').addEventListener('submit', async e => {
-  e.preventDefault();
-  const input = $('nameInput');
-  const btn = $('joinBtn');
-  const status = $('joinStatus');
-  const name = input.value.trim();
-  btn.disabled = true;
-  btn.textContent = 'OSNIVAM…';
-  status.textContent = '';
-  const res = await api('/api/join', { name });
-  btn.disabled = false;
-  btn.textContent = 'OSNUJ FIRMU';
-  if (!res.ok) {
-    status.textContent = (res.data && res.data.error) || 'Ne mogu da se prijavim. Pokušaj ponovo.';
-    status.classList.remove('ok');
-    return;
-  }
-  token = res.data.token;
-  localStorage.setItem('tzu_token', token);
-  status.textContent = 'Firma ' + res.data.name + ' je osnovana!';
-  status.classList.add('ok');
-  showApp();
-  $('splash').classList.remove('hidden');
-  setTimeout(() => {
-    connect();
-    $('splash').classList.add('hidden');
-  }, 250);
-});
-
-/* ------------------------------- STANJE ----------------------------------- */
-function onState() {
-  if (!S) return;
-  if (S.round !== lastRoundSeen) {
-    lastRoundSeen = S.round;
-    displayTaps = 0;
-  }
-  render();
-}
-
-function render() {
-  updateHeader();
-  updateStats();
-  renderStage();
-}
-
-function updateHeader() {
-  const me = S.me;
-  const myColor = (me.group && me.group.members > 1 ? me.group.color : me.color) || '#0c0c0c';
-  const sw = $('myColor');
-  if (sw) sw.style.background = myColor || '#0c0c0c';
-  $('myName').textContent = me.group && me.group.members > 1 ? me.group.name : me.name;
-  const badge = $('leaderBadge');
-  const isLeader = me.group && me.group.isLeader && me.group.members > 1;
-  badge.classList.toggle('hidden', !isLeader);
-  $('roundChip').textContent = S.phase === 'lobby' ? 'LOBI'
-    : S.phase === 'round' ? 'RUNDA ' + S.round + '/5'
-      : S.phase === 'results' ? 'REZULTATI' : 'KRAJ';
-  $('hint').textContent = hintText();
-}
-
-function hintText() {
-  const me = S.me;
-  if (S.paused) return 'Profesor je pauzirao igru.';
-  if (S.phase === 'lobby') return 'Sačekaj da profesor pokrene igru.';
-  if (S.phase === 'results') return 'Pogledaj rezultate na projektoru.';
-  if (S.phase === 'final') return 'Kraj igre — hvala na učešću!';
-  if (S.round === 1) return 'Tapkanje se šalje automatski.';
-  if (S.round === 2) return 'Kada svi odaberu, profesor zatvara rundu.';
-  if (S.round === 3) return 'Kada svi ulože, profesor zatvara rundu.';
-  if (S.round === 4) return me.group && me.group.isLeader ? 'Ti si lider — ti odgovaraš na ponude.' : 'Samo lider grupe šalje i prihvata ponude.';
-  if (S.round === 5) return 'Kada svi glasaju, profesor zatvara rundu.';
-  return '';
-}
-
-function updateStats() {
-  const me = S.me;
-  const inGroup = me.group && me.group.members > 1;
-  const rank = (inGroup && me.groupRank) ? me.groupRank : me.rank;
-  $('statCapital').textContent = fmt1(me.capital);
-  $('statCustomers').textContent = fmt0(me.customers);
-  $('statValue').textContent = fmt1(inGroup ? me.group.score : me.score);
-  $('statRank').textContent = rank ? '#' + rank : '—';
-}
-
-/* -------------------------------- STAGE ----------------------------------- */
-function stageKeyOf() {
-  if (S.phase === 'lobby') return 'lobby';
-  if (S.phase === 'results') return 'results:' + S.round;
-  if (S.phase === 'final') return 'final';
-  return 'r' + S.round;
-}
-
-function renderStage() {
-  const key = stageKeyOf();
-  if (key !== stageKey) {
-    stageKey = key;
-    tapFlushFn = null;
-    const built = buildStage(key);
-    stageRoot = built.root;
-    stageUpdate = built.update;
-    $('stage').innerHTML = '';
-    $('stage').append(stageRoot);
-    $('stage').scrollTop = 0;
-  }
-  if (stageUpdate) stageUpdate(S);
-}
-
-function buildStage(key) {
-  if (key === 'lobby') return buildLobby();
-  if (key === 'r1') return buildTap();
-  if (key === 'r2') return buildPrice();
-  if (key === 'r3') return buildInvest();
-  if (key === 'r4') return buildMerge();
-  if (key === 'r5') return buildVote();
-  if (key.startsWith('results:')) return buildResults();
-  return buildFinal();
-}
-
-/* --------------------------------- LOBI ----------------------------------- */
-function buildLobby() {
-  const root = h('div', { class: 'lobby-wait' },
-    h('div', { class: 'lobby-mark' }),
-    h('h2', {}, 'Firma je osnovana'),
-    h('div', { class: 'firm-name-big', id: 'lobbyFirm' }, h('span', { class: 'swatch', id: 'lobbySwatch' }), S.me.name),
-    h('p', {}, 'Dobio si 50 miliona KM kapitala. Na tržištu je 10.000 kupaca i svi se bore za njih. Igra ima 5 rundi.'),
-    h('div', { class: 'live-count', id: 'lobbyCount' }, ''),
-    h('div', { class: 'note' }, 'Kada se svi prijave, profesor pokreće igru.')
-  );
-  const update = st => {
-    const firmEl = $('lobbyFirm');
-    if (firmEl) {
-      const sw = document.getElementById('lobbySwatch');
-      if (sw) sw.style.background = st.me.color || '#0c0c0c';
-      if (firmEl.childNodes[1]) firmEl.childNodes[1].nodeValue = st.me.name;
-    }
-    const n = st.totals.players;
-    $('lobbyCount').innerHTML = '<b>' + fmt0(n) + '</b> ' + (n === 1 ? 'firma u sali' : 'firmi u sali');
-  };
-  return { root, update };
-}
-
-/* -------------------------------- RUNDA 1 --------------------------------- */
-function buildTap() {
-  const numEl = h('span', { class: 'tap-num', id: 'tapNum' }, '0');
-  const shareEl = h('b', { id: 'tapShare' }, '0%');
-  const custEl = h('b', { id: 'tapCust' }, '0');
-  const btn = h('button', { class: 'tap-btn', id: 'tapBtn', type: 'button', 'aria-label': 'Tapni' },
-    numEl, h('span', { class: 'tap-label' }, 'tapkanja'));
-  const root = h('div', { class: 'tap-zone' },
-    h('div', { class: 'round-head' },
-      h('h2', {}, 'Borba za kupce'),
-      h('p', {}, 'Tapkanjem osvajaš dio tržišta od 10.000 kupaca. Ko brže tapka — više kupaca.')
-    ),
-    btn,
-    h('div', { class: 'tap-share' }, 'Tvoj udio: ', shareEl, ' · kupci: ', custEl),
-    h('div', { class: 'tap-sub' }, 'Ne moraš ništa da potvrđuješ — tapkanje ide odmah.')
-  );
-
-  let pending = 0;
-  let flushing = false;
-  let lastSend = 0;
-
-  const flush = async () => {
-    if (!pending || flushing) return;
-    if (isPolling() && Date.now() - lastSend < 450) return;
-    lastSend = Date.now();
-    const n = Math.min(30, pending);
-    pending -= n;
-    flushing = true;
-    await act({ type: 'tap', n });
-    flushing = false;
-    if (pending > 0) setTimeout(flush, 60);
-  };
-
-  const onTap = ev => {
-    if (ev) ev.preventDefault();
-    if (!S || S.phase !== 'round' || S.round !== 1 || S.paused) return;
-    displayTaps++;
-    pending++;
-    numEl.textContent = fmt0(displayTaps);
-    vibrate(8);
-    btn.classList.remove('pulse');
-    void btn.offsetWidth;
-    btn.classList.add('pulse');
-    flush();
-  };
-
-  btn.addEventListener('pointerdown', onTap);
-  btn.addEventListener('contextmenu', e => e.preventDefault());
-  tapFlushFn = () => { if (pending > 0) flush(); };
-
-  const update = st => {
-    const me = st.me;
-    displayTaps = Math.max(displayTaps, me.taps);
-    numEl.textContent = fmt0(displayTaps);
-    shareEl.textContent = pct(me.share);
-    custEl.textContent = fmt0(me.customers);
-    btn.style.opacity = st.paused ? .5 : 1;
-  };
-  return { root, update };
-}
-
-/* -------------------------------- RUNDA 2 --------------------------------- */
-function buildPrice() {
-  const list = h('div', { class: 'choice-list' });
-  const cards = new Map();
-  const prices = S.meta.prices;
-  for (const p of prices) {
-    const revK = p.revenue * 1000000;
-    const attract = Math.round((p.weight - 1) * 100);
-    const tags = [];
-    tags.push(h('span', { class: 'pill' }, fmt0(revK) + ' KM / kupcu'));
-    if (attract > 0) tags.push(h('span', { class: 'pill good' }, '+' + attract + '% privlačnost'));
-    else if (attract < 0) tags.push(h('span', { class: 'pill bad' }, attract + '% privlačnost'));
-    else tags.push(h('span', { class: 'pill' }, 'bez promjene udjela'));
-    tags.push(h('span', { class: 'pill ' + (p.key === 'low' ? 'warn' : '') }, p.key === 'low' ? 'kradeš kupce' : p.key === 'high' ? 'gubiš kupce' : 'sigurna sredina'));
-    const check = h('span', { class: 'choice-check hidden' }, '✓');
-    const card = h('button', { class: 'choice-card', type: 'button', 'data-price': p.key },
-      h('div', { class: 'choice-top' },
-        h('span', { class: 'choice-sign' }, p.sign),
-        h('span', { class: 'choice-name' }, p.label),
-        check
-      ),
-      h('div', { class: 'choice-desc' }, p.desc),
-      h('div', { class: 'choice-tags' }, tags)
-    );
-    card.addEventListener('click', () => {
-      if (!S || S.paused) return;
-      select(p.key);
-      act({ type: 'price', value: p.key });
-    });
-    cards.set(p.key, { card, check });
-    list.append(card);
-  }
-  const status = h('div', { class: 'note', id: 'priceStatus' }, 'Odaberi cijenu. Možeš je mijenjati do kraja runde.');
-  const root = h('div', {},
-    h('div', { class: 'round-head' },
-      h('h2', {}, 'Cjenovni rat'),
-      h('p', {}, 'Cijena određuje i tvoju zaradu i tvoje kupce. Šta biraš?')
-    ),
-    list,
-    status
-  );
-  function select(key) {
-    for (const [k, v] of cards) {
-      v.card.classList.toggle('selected', k === key);
-      v.check.classList.toggle('hidden', k !== key);
-    }
-  }
-  const update = st => {
-    select(st.me.price);
-    $('priceStatus').textContent = st.me.price
-      ? 'Tvoj izbor: ' + (prices.find(p => p.key === st.me.price) || {}).label + '. Možeš promijeniti do kraja runde.'
-      : 'Odaberi cijenu. Možeš je mijenjati do kraja runde.';
-    for (const [k, v] of cards) v.card.classList.toggle('disabled', !!st.paused);
-  };
-  return { root, update };
-}
-
-/* -------------------------------- RUNDA 3 --------------------------------- */
-function buildInvest() {
-  const list = h('div', { class: 'choice-list' });
-  const cards = new Map();
-  const invs = S.meta.investments;
-  let optimisticKey = null;
-  let optimisticUntil = 0;
-  for (const inv of invs) {
-    const tags = [];
-    if (inv.key === 'ad') {
-      tags.push(h('span', { class: 'pill good' }, '+30% kupaca'));
-      tags.push(h('span', { class: 'pill' }, 'bez rizika'));
-    } else if (inv.key === 'innov') {
-      tags.push(h('span', { class: 'pill warn' }, '40% šansa'));
-      tags.push(h('span', { class: 'pill bad' }, 'rizik gubitka uloženog'));
-    } else {
-      tags.push(h('span', { class: 'pill good' }, '+8 mil kapitala'));
-      tags.push(h('span', { class: 'pill' }, 'bez rizika'));
-    }
-    const check = h('span', { class: 'choice-check hidden' }, '✓');
-    const cost = inv.cost > 0 ? '−' + fmt1(inv.cost) + ' mil' : '+8 mil';
-    const card = h('button', { class: 'choice-card', type: 'button' },
-      h('div', { class: 'choice-top' },
-        h('span', { class: 'choice-name' }, inv.label),
-        check,
-        h('span', { class: 'choice-cost' }, cost)
-      ),
-      h('div', { class: 'choice-desc' }, inv.desc),
-      h('div', { class: 'choice-tags' }, tags)
-    );
-    card.addEventListener('click', () => {
-      if (!S || S.paused) return;
-      optimisticKey = inv.key;
-      optimisticUntil = Date.now() + 2200;
-      for (const [k, v] of cards) {
-        v.card.classList.toggle('selected', k === inv.key);
-        v.check.classList.toggle('hidden', k !== inv.key);
-      }
-      act({ type: 'invest', value: inv.key });
-    });
-    cards.set(inv.key, { card, check, inv });
-    list.append(card);
-  }
-  const root = h('div', {},
-    h('div', { class: 'round-head' },
-      h('h2', {}, 'Investicije'),
-      h('p', {}, 'Ulažeš svoj kapital. Reklama je sigurna, inovacija je rizična, štednja je dosadna ali pouzdana.')
-    ),
-    list,
-    h('div', { class: 'note' }, 'Trošak se odbija odmah. Možeš promijeniti izbor dok je runda aktivna.')
-  );
-  const update = st => {
-    if (optimisticKey && Date.now() > optimisticUntil) optimisticKey = null;
-    const shown = optimisticKey || st.me.invest;
-    for (const [k, v] of cards) {
-      v.card.classList.toggle('selected', shown === k);
-      v.check.classList.toggle('hidden', shown !== k);
-      const tooExpensive = v.inv.cost > st.me.capital + 0.001;
-      v.card.classList.toggle('disabled', tooExpensive || !!st.paused);
-      v.card.title = tooExpensive ? 'Nemaš dovoljno kapitala' : '';
-    }
-  };
-  return { root, update };
-}
-
-/* -------------------------------- RUNDA 4 --------------------------------- */
-function buildMerge() {
-  const root = h('div', {});
-  let sig = '';
-  let refs = {};
-
-  function incText(o) {
-    const sec = Math.max(0, Math.ceil(o.msLeft / 1000));
-    return o.open
-      ? 'Javni poziv · još ' + sec + ' s' + (o.joined ? ' · pridružilo se: ' + o.joined : '')
-      : 'Ponuda ističe za ' + sec + ' s';
-  }
-  function outText(o, st) {
-    const sec = Math.max(0, Math.ceil((o.expiresAt - st.serverNow) / 1000));
-    return o.open
-      ? 'Pridružilo se: ' + o.joined + ' firmi · ističe za ' + sec + ' s'
-      : 'Čeka odgovor · ističe za ' + sec + ' s';
-  }
-
-  function structureChanged(st) {
-    const me = st.me;
-    const inc = (me.incoming || []).filter(o => !o.isMine);
-    return [
-      st.me.groupId, me.canOffer ? 1 : 0, me.group ? me.group.members : 1,
-      st.groups.map(g => g.id + ':' + g.members).sort().join(','),
-      inc.map(o => o.id + ':' + (o.canRespond ? 1 : 0)).join(','),
-      me.outgoing ? me.outgoing.id + ':' + me.outgoing.joined : '',
-    ].join('|');
-  }
-
-  function build(st) {
-    root.innerHTML = '';
-    const me = st.me;
-    const g = me.group;
-    const inc = (me.incoming || []).filter(o => !o.isMine);
-    refs = {};
-    const mp = S.meta.mergePower || 0.12;
-    const cv = S.meta.customerValue || 0.15;
-    const gainC = Math.round(me.customers * mp);
-    const gainV = gainC * cv;
-    const gainText = gainC > 0
-      ? '+' + Math.round(mp * 100) + '% kupaca (≈ +' + fmt0(gainC) + ') · +' + fmt1(gainV) + ' mil KM'
-      : 'spajanje donosi +' + Math.round(mp * 100) + '% kupaca';
-
-    root.append(h('div', { class: 'round-head' },
-      h('h2', {}, 'Spajanja'),
-      h('p', {}, 'Pregovarajte, pa pošaljite ponudu. Svako spajanje grupi donosi +' + Math.round((S.meta.mergePower || 0.12) * 100) + '% kupaca od rivala — veći rast znači više kupaca.')
-    ));
-
-    // grupa
-    root.append(h('div', { class: 'section-label' }, 'Tvoja grupa'));
-    const gp = h('div', { class: 'group-panel' });
-    if (g && g.members > 1) {
-      gp.append(
-        h('div', { class: 'gp-name' }, h('span', { class: 'swatch', style: { background: g.color || '#0c0c0c' } }), g.name),
-        h('div', { class: 'gp-meta' }, g.members + ' firmi: ' + (g.memberNames || []).join(', ')),
-        h('div', { class: 'gp-meta' }, 'Lider: ' + g.leaderName + (g.isLeader ? ' (ti)' : '') + ' · udio ' + pct(g.share) + ' · vrijednost ' + fmt1(g.score) + ' mil'),
-        h('div', { class: 'gp-meta' }, 'Zajedno imate ' + fmt0(g.customers) + ' kupaca i ' + fmt1(g.capital) + ' mil kapitala.'),
-        h('div', { class: 'gp-meta' }, 'Svako novo spajanje: ' + gainText + ' svakom članu.')
-      );
-    } else {
-      gp.append(
-        h('div', { class: 'gp-name' }, h('span', { class: 'swatch', style: { background: me.color || '#0c0c0c' } }), me.name),
-        h('div', { class: 'gp-meta' }, 'Samostalna firma · ' + fmt0(me.customers) + ' kupaca · ' + fmt1(me.capital) + ' mil kapitala'),
-        h('div', { class: 'gp-meta' }, 'Ako prihvatiš spajanje: ' + gainText + '. Zato se isplati biti u većoj grupi.')
-      );
-    }
-    root.append(gp);
-
-    // dolazne ponude
-    if (inc.length) {
-      root.append(h('div', { class: 'section-label' }, 'Ponude za tebe'));
-      for (const o of inc) {
-        const card = h('div', { class: 'offer-card' + (o.open ? ' open-offer' : '') });
-        const metaEl = h('div', { class: 'offer-meta' }, incText(o));
-        refs.offerMeta = refs.offerMeta || [];
-        refs.offerMeta.push({ el: metaEl, id: o.id });
-        card.append(
-          h('div', { class: 'offer-title' },
-            h('span', { class: 'swatch', style: { background: o.fromColor || '#0c0c0c' } }),
-            o.open
-              ? o.fromGroupName + ' poziva sve firme na spajanje'
-              : o.fromGroupName + ' želi da se spoji s tobom'),
-          metaEl
-        );
-        if (o.canRespond) {
-          const afterValue = (o.fromGroupScore || 0) + me.score;
-          const dv = afterValue - me.score;
-          card.append(h('div', { class: 'note merge-gain' },
-            'Nakon spajanja: kompanija ≈ ' + fmt1(afterValue) + ' mil (' +
-            (dv >= 0 ? '+' : '') + fmt1(dv) + ' mil) · +' + fmt0(gainC) + ' kupaca'));
-          const acts = h('div', { class: 'offer-actions' });
-          const acc = h('button', { class: 'btn btn-accept', type: 'button' }, 'PRIHVATI');
-          const rej = h('button', { class: 'btn btn-reject', type: 'button' }, 'ODBIJ');
-          acc.onclick = () => { acc.disabled = true; act({ type: 'respond', offerId: o.id, accept: true }); };
-          rej.onclick = () => { rej.disabled = true; act({ type: 'respond', offerId: o.id, accept: false }); };
-          acts.append(acc, rej);
-          card.append(acts);
-        } else {
-          card.append(h('div', { class: 'offer-meta' }, 'Samo lider tvoje grupe odgovara na ponude.'));
-        }
-        root.append(card);
-      }
-    }
-
-    // odlazna ponuda
-    if (me.outgoing) {
-      root.append(h('div', { class: 'section-label' }, 'Tvoja ponuda'));
-      refs.outMeta = h('div', { class: 'offer-meta' }, outText(me.outgoing, st));
-      root.append(h('div', { class: 'offer-card' },
-        h('div', { class: 'offer-title' }, me.outgoing.open
-          ? 'Tvoj javni poziv je otvoren'
-          : 'Ponuda poslata: ' + me.outgoing.toGroupName),
-        refs.outMeta
-      ));
-      if (me.outgoing.open) {
-        root.append(h('div', { class: 'note' }, 'Svako prihvatanje: ' + gainText + ' tebi'));
-      }
-    }
-
-    // akcije lidera
-    if (me.canOffer || (g && g.isLeader)) {
-      root.append(h('div', { class: 'section-label' }, 'Pošalji ponudu'));
-      const openBtn = h('button', { class: 'btn-open-offer', type: 'button' },
-        'POZOVI SVE FIRME NA SPAJANJE'
-      );
-      openBtn.onclick = () => act({ type: 'offer', value: '__open__' });
-      refs.openBtn = openBtn;
-      root.append(openBtn);
-      if (me.cooldownMs > 0) {
-        refs.cool = h('div', { class: 'cooldown', id: 'mergeCool' }, '');
-        root.append(refs.cool);
-      }
-      const others = st.groups.filter(x => x.id !== me.groupId);
-      root.append(h('div', { class: 'section-label' }, 'Ili pošalji ponudu jednoj grupi'));
-      for (const o of others) {
-        const row = h('div', { class: 'merge-row' },
-          h('span', { class: 'mr-dot', style: { background: o.color || '#0c0c0c' } }),
-          h('div', { class: 'mr-main' },
-            h('div', { class: 'mr-name' }, o.name),
-            h('div', { class: 'mr-meta' }, o.members + ' firmi · ' + pct(o.share) + ' tržišta · ' + fmt1(o.score) + ' mil')
-          )
-        );
-        const b = h('button', { class: 'btn', type: 'button' }, 'PONUDI');
-        b.onclick = () => act({ type: 'offer', value: o.id });
-        row.append(b);
-        root.append(row);
-      }
-      root.append(h('div', { class: 'note' }, 'Ako oni prihvate, njihova grupa se pridružuje tvojoj. Ti ostaješ lider.'));
-    } else {
-      root.append(h('div', { class: 'section-label' }, 'Ti nisi lider'));
-      root.append(h('div', { class: 'offer-card ' },
-        h('div', { class: 'offer-title' }, 'Lider tvoje grupe je ' + (g ? g.leaderName : '—')),
-        h('div', { class: 'offer-meta' }, 'Samo lider odgovara na ponude i šalje nove. Lobiraj kod njega — ili izdaj grupu glasom u rundi 5.')
-      ));
-    }
-    refs.me = me;
-  }
-
-  const update = st => {
-    if (structureChanged(st) !== sig) {
-      sig = structureChanged(st);
-      build(st);
-    }
-    const me = st.me;
-    if (refs.openBtn) refs.openBtn.disabled = !!me.outgoing || me.cooldownMs > 0 || st.paused;
-    if (refs.cool) {
-      refs.cool.textContent = me.cooldownMs > 0
-        ? 'Sačekaj ' + Math.ceil(me.cooldownMs / 1000) + ' s prije nove ponude.'
-        : 'Ponuda je poslata — sačekaj odgovor.';
-    }
-    if (refs.offerMeta) {
-      for (const item of refs.offerMeta) {
-        const o = (me.incoming || []).find(x => x.id === item.id);
-        if (o) item.el.textContent = incText(o);
-      }
-    }
-    if (refs.outMeta && me.outgoing) refs.outMeta.textContent = outText(me.outgoing, st);
-  };
-  return { root, update };
-}
-
-/* -------------------------------- RUNDA 5 --------------------------------- */
-function buildVote() {
-  const root = h('div', {});
-  root.append(h('div', { class: 'round-head' },
-    h('h2', {}, 'Komisija'),
-    h('p', {}, 'Cijela sala glasa koju od najvećih grupa treba zabraniti. Glasaju i članovi grupa — pa ima lobiranja i izdaja.')
-  ));
-  const list = h('div', {});
-  const cards = new Map();
-  const mine = S.me.groupId;
-  const cands = (S.voteCandidates || []).filter(c => c.groupId !== mine);
-  if (!cands.length) {
-    root.append(h('div', { class: 'note' }, 'Nema kandidata za glasanje.'));
-  }
-  for (const c of cands) {
-    const check = h('span', { class: 'vc-check hidden' }, '✓');
-    const card = h('button', { class: 'vote-card', type: 'button' },
-      h('span', { class: 'vc-dot', style: { background: c.color } }),
-      h('div', { class: 'vc-main' },
-        h('div', { class: 'vc-name' }, c.name),
-        h('div', { class: 'vc-meta' }, c.members + ' firmi · ' + pct(c.share) + ' tržišta · ' + fmt1(c.score) + ' mil')
-      ),
-      check
-    );
-    card.onclick = () => { if (!S || S.paused) return; select(c.groupId); act({ type: 'vote', value: c.groupId }); };
-    cards.set(c.groupId, { card, check });
-    list.append(card);
-  }
-  const status = h('div', { class: 'vote-status', id: 'voteStatus' }, '');
-  root.append(list, status);
-  root.append(h('div', { class: 'note' }, 'Zabranjena grupa se raspada na firme kakve su bile prije spajanja i plaća kaznu od 30% kapitala.'));
-  function select(id) {
-    for (const [k, v] of cards) {
-      v.card.classList.toggle('voted', k === id);
-      v.check.classList.toggle('hidden', k !== id);
-    }
-  }
-  const update = st => {
-    select(st.me.vote);
-    const total = st.totals.players;
-    $('voteStatus').textContent = st.me.vote
-      ? 'Glasao si: ' + ((st.voteCandidates.find(c => c.groupId === st.me.vote) || {}).name || '—') + ' · glasalo ' + st.votesCast + '/' + total
-      : 'Još nisi glasao · glasalo ' + st.votesCast + '/' + total;
-    for (const [, v] of cards) v.card.classList.toggle('disabled', !!st.paused);
-  };
-  return { root, update };
-}
-
-/* ------------------------------- REZULTATI -------------------------------- */
-function buildResults() {
-  const root = h('div', { class: 'result-box' });
-  const me = S.me;
-  const dCap = me.capital - me.prevCapital;
-  const dCust = me.customers - me.prevCustomers;
-  let big, bigClass, sub;
-  if (Math.abs(dCust) >= 1 || Math.abs(dCap) < 0.05) {
-    big = (dCust >= 0 ? '+' : '') + fmt0(dCust) + ' kupaca';
-    bigClass = dCust > 0 ? 'up' : dCust < 0 ? 'down' : 'flat';
-    sub = 'kapital ' + (dCap >= 0 ? '+' : '') + fmt1(dCap) + ' mil · sada ' + fmt1(me.capital) + ' mil';
-  } else {
-    big = (dCap >= 0 ? '+' : '') + fmt1(dCap) + ' mil';
-    bigClass = dCap > 0 ? 'up' : dCap < 0 ? 'down' : 'flat';
-    sub = 'kupci ' + (dCust >= 0 ? '+' : '') + fmt0(dCust) + ' · sada ' + fmt0(me.customers) + ' kupaca';
-  }
-  const r = S.results || {};
-  const lines = [];
-  if (r.headline) lines.push(r.headline);
-  for (const l of (r.lines || [])) {
-    if (lines.length >= 3) break;
-    lines.push(l);
-  }
-  const cv = S.meta.customerValue || 0.15;
-  const value = me.capital + me.customers * cv;
-  const prevValue = (me.prevCapital != null ? me.prevCapital : me.capital) +
-    (me.prevCustomers != null ? me.prevCustomers : me.customers) * cv;
-  const dVal = value - prevValue;
-
-  const resColor = me.group && me.group.members > 1 ? me.group.color : me.color;
-  root.append(
-    h('div', { class: 'result-kicker' },
-      h('span', { class: 'swatch', style: { background: resColor || '#0c0c0c' } }),
-      'RUNDA ' + S.round + ' · ' + ((r.title || '').toUpperCase())),
-    h('div', { class: 'result-big ' + bigClass }, big),
-    h('div', { class: 'result-sub' }, sub),
-    h('div', { class: 'rank-line' },
-      h('span', {}, 'Tvoj plasman'),
-      h('b', {}, '#' + me.rank + ' / ' + S.totals.players)
-    ),
-    h('div', { class: 'result-lines' },
-      h('li', {}, 'Vrijednost firme: ' + (dVal >= 0 ? '+' : '') + fmt1(dVal) + ' mil · sada ' + fmt1(value) + ' mil')
-    )
-  );
-
-  if (S.round === 3 && me.invest === 'innov') {
-    const ok = me.investSuccess === true;
-    root.append(h('div', { class: 'result-lines' },
-      h('li', { style: { borderLeftColor: ok ? 'var(--green)' : 'var(--red)' } },
-        ok ? '✓ Tvoja inovacija je USPJELA — kupci su udvostručeni.' : '✗ Tvoja inovacija nije uspjela — uloženih 20 mil je izgubljeno.')
-    ));
-  }
-  if (S.round === 4 && me.group) {
-    root.append(h('div', { class: 'result-lines' },
-      h('li', {}, me.group.members > 1
-        ? 'Tvoja grupa: ' + me.group.name + ' (' + me.group.members + ' firmi) · ' + pct(me.group.share) + ' tržišta · vrijednost ' + fmt1(me.group.score) + ' mil KM'
-        : 'Ostao si samostalna firma. U sljedećoj rundi Komisija glasa.')
-    ));
-  }
-  if (S.round === 5 && r.headline) {
-    root.append(h('div', { class: 'result-lines' }, h('li', {}, r.headline)));
-  }
-  if (lines.length) {
-    root.append(h('div', { class: 'result-lines' }, lines.map(t => h('li', {}, t))));
-  }
-  root.append(h('div', { class: 'note' }, 'Kompletni rezultati su na projektoru. Profesor pokreće sljedeću rundu.'));
-  return { root, update: () => { } };
-}
-
-/* --------------------------------- FINALE --------------------------------- */
-function buildFinal() {
-  const me = S.me;
-  const place = me.groupRank || me.rank;
-  const winner = S.final && S.final.winner;
-  const inGroup = me.group && me.group.members > 1;
-  const value = inGroup ? me.group.score : me.score;
-  const note = inGroup
-    ? 'Vrijednost kompanije = sve firme u grupi (' + me.group.members + '). Tvoja firma: ' +
-      fmt0(me.customers) + ' kupaca i ' + fmt1(me.capital) + ' mil kapitala — kupci su rasli sa grupom.'
-    : 'Vrijednost = kapital + kupci × 100.000 KM. Završio si sa ' + fmt0(me.customers) +
-      ' kupaca i ' + fmt1(me.capital) + ' mil kapitala.';
-  const root = h('div', { class: 'final-box' },
-    h('div', { class: 'final-place-num' }, '#' + place),
-    h('div', { class: 'final-place' }, place + '. mjesto'),
-    h('div', { class: 'final-label' }, inGroup ? 'vrijednost kompanije' : 'vrijednost firme'),
-    h('div', { class: 'final-value' }, fmt1(value) + ' mil'),
-    h('div', { class: 'final-note' }, note),
-    h('div', { class: 'final-winner' }, winner ? ['Pobjednik: ', h('b', {}, winner.name + ' (' + fmt1(winner.score) + ' mil)')] : ''),
-    h('div', { class: 'note' }, 'Profesor na projektoru otvara analizu: zašto je rast vodio u monopol.')
-  );
-  return { root, update: () => { } };
-}
-
-/* ---------------------------------- AKCIJE -------------------------------- */
-async function act(payload) {
-  if (!token) return null;
-  const beforeCustomers = S && S.me ? S.me.customers : 0;
-  const res = await api('/api/act', Object.assign({ token }, payload));
-  const data = res.data;
-  if (data && data.state) {
-    const gained = (data.state.me ? data.state.me.customers : 0) - beforeCustomers;
-    S = data.state;
-    offset = S.serverNow - Date.now();
-    render();
-    if (payload.type === 'respond' && gained > 0 && S.round === 4) {
-      const cv = S.meta.customerValue || 0.15;
-      toast('+' + fmt0(gained) + ' kupaca · +' + fmt1(gained * cv) + ' mil KM');
-    }
-  } else if (data && data.ok === false && data.error) {
-    toast(data.error);
-  }
-  return data;
-}
-
-function toast(msg) {
-  let el = $('toast');
-  if (!el) {
-    el = h('div', { id: 'toast' });
-    document.body.append(el);
-  }
-  el.textContent = msg;
-  el.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('show'), 2400);
-}
-
-/* ---------------------------------- TIMER --------------------------------- */
-setInterval(() => {
-  if (!S) return;
-  const el = $('myTimer');
-  const visible = S.phase === 'round' && !S.manual;
-  el.style.display = visible ? '' : 'none';
-  el.classList.remove('low', 'paused', 'manual');
-  if (!visible) return;
-  const ms = S.paused
-    ? S.timerLeft
-    : (S.endsAt ? Math.max(0, S.endsAt - (Date.now() + offset)) : 0);
-  el.textContent = S.paused ? '⏸' : secondsText(ms);
-  el.classList.toggle('low', !S.paused && ms <= 5000);
-  el.classList.toggle('paused', S.paused);
-}, 150);
-/* Tapkanje se šalje u paketima (max ~25/s, koliko server dozvoljava) */
-setInterval(() => { if (tapFlushFn) tapFlushFn(); }, 140);
-
-/* Spreči slučajno zatvaranje / osvježavanje tokom igre */
-window.addEventListener('beforeunload', e => {
-  if (S && (S.phase === 'round' || S.phase === 'results')) {
-    e.preventDefault();
-    e.returnValue = '';
-  }
-});

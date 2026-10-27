@@ -114,7 +114,7 @@ async function getState(res, url) {
 
 async function postJoin(req, res) {
   const body = await readJson(req);
-  const out = await withState(() => engine.doJoin(body.name));
+  const out = await withState(() => engine.doJoin(body.name,body.firstName,body.lastName));
   if (!out) return json(res, 409, { error: 'Server je zauzet, pokušaj ponovo.' });
   return json(res, out.status, out.body);
 }
@@ -161,6 +161,7 @@ async function handle(kind, req, res) {
   engine.setJoinHost(hostOf(req), protoOf(req));
   const url = new URL(req.url || '/', (protoOf(req) || 'https') + '://' + (hostOf(req) || 'localhost'));
   try {
+    if (kind === 'qr') return await require('../qr-code')(res, engine.lanUrl());
     if (kind === 'info') {
       return json(res, 200, {
         joinUrl: engine.lanUrl(),

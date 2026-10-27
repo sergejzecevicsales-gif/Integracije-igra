@@ -1,309 +1,108 @@
-# TRŽIŠTE UŽIVO
+# Tržište uživo — pregovori i samostalnost
 
-**🔗 Uživo (Vercel):** [trziste-uzivo.vercel.app/screen](https://trziste-uzivo.vercel.app/screen) ·
-telefoni: [trziste-uzivo.vercel.app](https://trziste-uzivo.vercel.app/)
+Igra za 10–12 minuta u kojoj učesnici vode različite internet firme, pregovaraju o ugovorima i spajanjima, prodaju ili zadržavaju kontrolu, a zatim postaju kupci na tržištu koje su sami napravili.
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/sergejzecevicsales-gif/Integracije-igra)
+## Pokretanje i vođenje
 
-Multiplayer igra za predavanje o tržišnim strukturama, konkurenciji i koncentraciji.
-Studenti osnivaju firme na telefonima i 6–7 minuta igraju na tržištu od **10.000 kupaca**,
-a profesor na projektoru gleda kako tržište klizi iz konkurencije u monopol.
+- `npm start` ili dvoklik na `start.bat`. Projektor: `http://localhost:4000/screen` (ili port ispisan u prozoru servera).
+- Telefoni skeniraju lokalno generisan QR kod ili otvore adresu sa projektora. Pri otvaranju firme obavezno se unose ime, prezime i naziv firme. Ime i prezime se prikazuju uz firmu u lobiju, listi za pregovore, ponudama i vlasničkoj strukturi, kako bi učesnici znali s kim pregovaraju. Za lokalnu igru koristite istu Wi-Fi mrežu. Najmanje 3, najviše 60 firmi.
+- **Kontrole → +8 demo firmi** za probu. Demo firme prihvataju ponude prema istim pravilima; međusobno pregovaraju bez prisilnog spajanja ljudi.
+- Domaćin završava svaku aktivnost i svako otkrivanje. Vrijeme je preporuka, nema automatskog prekida pregovora.
+- Space aktivira glavno dugme, P pauzira, A skriva kontrole, B dodaje demo firme u lobiju, F otvara cijeli ekran.
+- **Nova igra · iste firme** briše rezultate i čuva prijave. **Isprazni salu** briše i prijave; telefoni se vraćaju na ulaz.
 
-* **Projektor / računar:** veliki ekran sa tržištem, HHI mjeračem, rang listom i vijestima
-* **Telefoni:** svaki student vodi svoju firmu (5 rundi)
-* **Bez instalacije i bez baze za lokalnu igru** — jedan Node.js fajl i statični frontend
-* **Online:** Vercel + Neon Postgres (serverless, polling) — link radi sa bilo koje mreže
-* **Demo režim:** dugme „+8 botova“ popuni salu ako nema dovoljno telefona
+## Tok za 10–12 minuta
 
----
+| Korak | Aktivnost | Potez i koncept |
+|---|---|---|
+| 1 | Početni potez, 45 s | Uloži u efikasnost ili čuvaj gotovinu za preuzimanja. Likvidnost i oportunitetni trošak. |
+| 2 | Prvi pregovori, 2 min | Dogovorite udio i novac odmah. Ponuda prikazuje procjenu ličnog dobitka, uz gubitak ili zadržavanje kontrole. |
+| 3 | Prvi poslovni mjesec, 30 s | Vlasnici biraju cijenu. Stvarni profit se isplaćuje članovima i pojavljuje na leaderboardu. |
+| 4 | Objavi uslove, 40 s | Nezavisni vlasnici objavljuju koliko udjela i gotovine traže za novi dogovor. Pregovaračka moć i rezervacioni uslovi. |
+| 5 | Završni pregovori, 2 min | Koristi već zarađeni novac, uporedi računicu i otkupi preostale rivale ako se dogovor isplati. |
+| 6 | Drugi poslovni mjesec, 30 s | Preostali vlasnici opet biraju cijenu. Druga isplata pokazuje promjenu zarade i tržišne moći. |
+| 7 | Otvaranje tržišta, 20 s | Strani ponuđač ulazi s paketom 40 KM. Uporedi domaći profit, cijene i dostupnost. |
 
-## 1. Brzo pokretanje
+Između koraka domaćin otkriva posljedice i može zastati za kratko objašnjenje. Uklonjeni su anketa o tome žele li učesnici živjeti na tržištu i pojedinačna kupovina interneta. Fokus je na ličnoj finansijskoj koristi i tome kako prihvaćeni dogovori uklanjaju nezavisne rivale.
 
-1. Instaliraj [Node.js](https://nodejs.org) (LTS). Provjera: `node -v`
-2. Dvoklik na **`start.bat`** (ili `npm start`)
-3. Otvoriće se ekran za projektor: **`http://localhost:4000/screen`**
-4. Na projektoru piše adresa za telefone (npr. `http://192.168.100.10:4000/`) i QR kod
-5. Studenti otvore tu adresu, upišu ime firme i kliknu **OSNUJ FIRMU**
-6. Kad se svi prijave: **POKRENI IGRU**
+Ne nameći ishod. Ako učesnici ne prihvate ponuđene uslove, na tržištu ostaje više firmi. Igra modelira podsticaje za koncentraciju, a ne univerzalnu tvrdnju da svako tržište mora postati monopol. U ovom pojednostavljenom modelu jedan vlasnik znači monopol, a 2–5 vlasnika označeno je kao oligopol.
 
-> Ako je port 4000 zauzet, server sam prelazi na 4001, 4002… i na ekranu prikaže tačnu adresu.
-> Port možeš fiksirati: `set PORT=4100 && node server.js`
+## Lični dohodak na svakom koraku
 
-### Mreža (najčešći problem)
+Na vrhu telefona, iznad novca firme, stalno je **Lični dohodak**: stvarno isplaćeni zbir udjela u profitu. Ispod njega su prosjek po završenom poslovnom mjesecu, raspoloživi novac firme i sažetak efekta trenutnog koraka. Gotovinske isplate iz dogovora ostaju posebno prikazane: one nisu mjesečni dohodak.
 
-* Računar i telefoni moraju biti na **istoj Wi-Fi mreži**.
-* Prvi put Windows pita za dozvolu firewall-a — klikni **Allow access** (Private networks).
-* Ako telefoni ne mogu da se spoje: provjeri firewall, isključi **AP/client isolation**
-  na ruteru, isključi VPN, ili napravi hotspot sa telefona i poveži računar na njega.
-* Provjera sa telefona: otvori adresu sa ekrana — ako vidiš formu za prijavu, sve radi.
+- Ulaganje pokazuje procjenu dohotka prije i poslije ulaganja, te gotovinu koju firma sada troši.
+- Nacrt ponude i kontraponude prikazuje računicu prije slanja. Pregled ne šalje ponudu, ne rezerviše sredstva i ne mijenja novac.
+- Potvrđeni dogovor prikazuje promjenu ličnog udjela, gotovine i procjene dohotka uz cjenovni plan iz ponude.
+- Svaka ponuđena cijena pokazuje procjenu vlastitog dohotka. Cijene rivala uzimaju se iz posljednjeg objavljenog kruga ili kao 40 KM prije prve prodaje; tuđi tajni izbori ne ulaze u pregled.
+- Objavljivanje traženih uslova nema isplatu dok neko ne prihvati ponudu.
+- Obračun mjeseca pokazuje stvarnu pripadajuću isplatu i promjenu u odnosu na prošli mjesec.
+- Strani ulazak prikazuje poređenje budućeg dohotka, bez mijenjanja već isplaćenog novca.
 
----
+## Kako se ponašaju demo firme
 
-## 2. Kako izgleda čas (6–7 minuta)
+Demo firme uzimaju nekoliko sekundi za odluku i ostavljaju vrijeme ljudima da odgovore. Ponude šalju i ljudima. Biraju među dostupnim partnerima prema računici ličnog rezultata; dijele očekivanu korist tako da ponuda može biti prihvatljiva objema stranama i poštuju raspoloživi novac. Ne šalju niz ponuda dok se čeka postojeći dogovor.
 
-| Faza | Trajanje | Šta studenti rade | Šta piše na projektoru |
+Demo firma prihvata ponudu ako ona prema vidljivoj računici ne smanjuje njen lični rezultat i kupac može platiti. Za nepovoljnu ponudu traži bolje uslove, a odbija je ako ne nalazi izvediv dogovor. Uz odgovor se prikazuje kratko obrazloženje. Bot ne odgovara sam sebi, ne odlučuje umjesto ljudskog vlasnika i pri izboru cijene ne koristi tuđe tajne izbore.
+
+## Lična računica i leaderboard
+
+Svaka ponuda za spajanje prikazuje poređenje bez dogovora i s dogovorom za svakog člana dvije grupe. Procjena uključuje jednu narednu mjesečnu isplatu i gotovinu koja se plaća odmah. Računa se najbolja dostupna cijena nove grupe, uz nepromijenjene sadašnje cijene rivala; prije prve prodaje, kada cijene nisu poznate, koristi se pretpostavka 40 KM. Prikazuju se i procijenjeni gubitnici među članovima. Prognoza nije obećana isplata: naredne odluke o cijeni i novi dogovori mogu promijeniti ishod.
+
+Leaderboard prikazuje:
+
+- **Lični dobitak:** raspoloživi novac firme minus početni novac. Uključuje ulaganja, gotovinu plaćenu ili primljenu pri spajanjima i stvarno isplaćene udjele profita.
+- **Prosječnu mjesečnu zaradu:** zbir isplaćenih udjela profita podijeljen brojem završenih poslovnih mjeseci. Ovo je zarada učesnika iz igre, ne stvarna plata zaposlenih; kupoprodajne isplate nisu mjesečna zarada.
+- Prosjek mjesečne zarade cijele sale. Prije prve isplate mjesečna zarada je 0 KM.
+
+U drugom krugu pregovora, ciljna grupa može objaviti traženi udio i gotovinu. To su početni, neobavezujući uslovi. Kupac ne može ponuditi novac koji nema i može umjesto njega ponuditi veći udio. Objavljena tražena cijena prodavca ne mora biti manja od njegovog vlastitog novca: to nije trošak koji prodavac obećava platiti.
+
+## Firme i prvi potez
+
+Tri tipa se ravnomjerno smjenjuju pri pokretanju:
+
+| Prednost | Osnovni trošak po kupcu | Težina pri istoj cijeni | Početni novac |
 |---|---|---|---|
-| Lobi | dok se svi ne prijave | upisuju ime firme | adresa, QR, lista firmi |
-| **R1 Borba za kupce** | **25 s (tajmer)** | tapkaju i otimaju kupce | krug se dijeli na 30 komada, HHI ~330 |
-| **R2 Cjenovni rat** | ručno | biraju nisku/srednju/visoku cijenu | HHI blago raste, priča o zatvorenikovoj dilemi |
-| **R3 Investicije** | ručno | reklama / inovacija / štednja | otkriva se čije su inovacije uspjele |
-| **R4 Spajanja** | ručno | spajaju se; svako spajanje donosi **+12% kupaca** | krug se skuplja, **HHI u crveno → monopol** |
-| **R5 Komisija** | ručno | glasaju koju grupu zabraniti | Komisija sudi; često nema kvorum — **monopol ostaje** |
-| Kraj | — | gledaju finale | pobjedničko postolje + graf HHI kroz igru |
+| Kupci | 26 KM | 3 | Jedna jedinica |
+| Infrastruktura | 14 KM | 1 | Jedna jedinica |
+| Kapital | 22 KM | 1 | Tri jedinice |
 
-**Tajmer ima samo runda tapkanja (R1).** Sve ostale runde, kao i svaki ekran sa rezultatima,
-profesor zatvara i otvara ručno dugmetom **DALJE** (i `Space`) — tako ima vremena za objašnjenje.
-`PAUZA` zamrzava igru (i tajmer u R1) kad je potrebno.
+Jedna novčana jedinica iznosi 180.000 KM podijeljeno brojem firmi. Ulaganje košta 90.000 KM podijeljeno brojem firmi i trajno smanjuje osnovni trošak te firme za 6 KM. Druga opcija je čuvanje novca. Odluka je zaključana nakon slanja. Početni novac se oduzima pri rangiranju, pa se veći početni kapital ne prikazuje kao zarađeni profit.
 
----
+## Pregovori: stvarni uslovi i posljedice
 
-## 3. Pravila po rundama
+**Spajanje:** inicijator nudi drugoj grupi 10–70% udjela, u koracima od 5%, i opcionalnu isplatu odmah iz novca svoje firme. Ponuda pokazuje lični udio nakon spajanja, gotovinu, ime osobe koja zadržava kontrolu i novi trošak. Druga strana može prihvatiti, odbiti ili poslati kontraponudu za udio i novac. Kontraponuda ne zamjenjuje osobu koja bi zadržala kontrolu. Ovako firma s kapitalom može ponuditi više novca sada, a zadržati veći dio budućeg profita.
 
-### Runda 1 — Borba za kupce (25 s)
+Nakon prihvatanja inicijator zadržava ugovoreno pravo upravljanja, nezavisno od svog procenta udjela. Druga grupa gubi pravo postavljanja samostalne cijene. Postojeći udjeli obje grupe proporcionalno se prilagođavaju, a ukupno ostaje 100%. To je pojednostavljeno, unaprijed prikazano pravilo igre. Kasnija spajanja mogu dodatno smanjiti procenat udjela ranijih članova; pregovara osoba koja ima kontrolu. Dogovorena gotovina se naplaćuje kontrolnom vlasniku koji je poslao ponudu i dijeli članovima druge grupe prema njihovim prethodnim udjelima. Novac se prenosi, ne stvara. Ako ponuđač više nema dovoljno novca, ponuda se ne može prihvatiti bez novih uslova.
 
-Svako tapkanje je dio tržišta. Na kraju runde kupci se dijele srazmjerno broju tapkanja
-(+ mali bazni udio da niko ne ostane na nuli). 10.000 kupaca, 30 firmi → HHI ≈ 330.
+Spojena grupa može koristiti najjeftiniju dostupnu infrastrukturu svojih članova, pa je njen osnovni trošak najmanji operativni trošak člana. Kapacitet infrastrukture u ovom modelu nije ograničen. Grupa koja ima i tip Kupci i tip Infrastruktura dodatno štedi 4 KM po kupcu, jednom, uz donju granicu troška 8 KM. Spajanje samo po sebi ne stvara kupce.
 
-### Runda 2 — Cjenovni rat (ručno)
+**Ugovor o infrastrukturi:** barem jedna strana mora imati tip Infrastruktura. Korisnik ugovora smanjuje operativni trošak do 8 KM, uz donju granicu 8 KM, i plaća vlasniku mreže dogovorenu naknadu od 2, 4 ili 6 KM po svom kupcu. Obje firme zadržavaju kontrolu. Ponuda prikazuje stvarnu neto uštedu korisnika. Ako obje strane imaju infrastrukturu, ciljna strana iznajmljuje mrežu inicijatoru. Novi ugovor zamjenjuje prethodni ugovor korisnika.
 
-| Cijena | Zarada po kupcu | Privlačnost kupaca |
-|---|---|---|
-| **Niska** | 8.000 KM | +70% |
-| **Srednja** | 20.000 KM | 0% |
-| **Visoka** | 55.000 KM | −38% |
-
-Kupci se preraspodjeljuju prema cijeni (oni sa niskom cijenom uzimaju dio onima sa visokom).
-Zamka: **ako svi obore cijenu, niko ne dobija kupce**, a svi zarađuju manje.
-Ako svi drže visoku cijenu, svi zarađuju — ali svako pojedinačno ima motiv da obori cijenu.
-
-### Runda 3 — Investicije (ručno)
-
-| Ulaganje | Cijena | Efekat |
-|---|---|---|
-| **Reklama** | 15 mil | +30% kupaca (na račun drugih) |
-| **Inovacija** | 20 mil | 40% šanse da udvostručiš kupce; ako ne uspije, uloženih 20 mil je izgubljeno |
-| **Štednja** | 0 | +8 mil kapitala, bez rizika |
-
-Trošak se odbija odmah; ishod inovacije se otkriva na projektoru na kraju runde.
-
-### Runda 4 — Spajanja (ručno)
-
-* **Direktna ponuda** — pošalješ ponudu jednoj grupi; ona prihvata/odbija (12 s).
-* **Javni poziv** — pozoveš sve firme; svaka grupa koja prihvati pridružuje se tvojoj (20 s).
-  Tako nastaju velike grupe u nekoliko sekundi — zato HHI skače u crveno.
-* Grupe se mogu spajati dalje. **Samo lider grupe** šalje i prihvata ponude.
-* Spajanje objedinjuje kapital i kupce. Lider ostaje onaj ko je inicirao spajanje.
-* Na telefonu svaka ponuda pokazuje **procjenu isplate**: vrijednost kompanije nakon spajanja
-  i sopstveni rast kupaca (+12%), da bi igrač odmah vidio zašto mu se spajanje isplati.
-* **Tržišna moć (ključno!)** — svako spajanje donosi grupi **+12% kupaca** na račun rivala.
-  Ti kupci se dijele članovima grupe, pa **tvoja firma raste čim se grupa širi**.
-  Rast udjela hrani dalji rast → koncentracija ide samo gore, ka monopolu.
-
-### Runda 5 — Komisija (ručno)
-
-* Glasa svaka firma, jedan glas, **ne može se glasati za svoju grupu**.
-* Na glasačkom listiću su **4 najveće grupe**; zabranjuje se ona sa najviše glasova.
-* Zabranjena grupa se **raspada na firme kakve su bile prije spajanja** i plaća kaznu
-  od **30% kapitala**.
-* **Regulatorno zarobljavanje:** ako najveća grupa ima **više od polovine svih firmi**,
-  Komisija **nema kvorum** — članovi su većina i monopol ostaje.
-  (Tako igra pokazuje da regulacija stiže prekasno, kad je tržište već zarobljeno.)
-
-### Kraj
-
-**Vrijednost firme = kapital + kupci × 100.000 KM.** Pobjednik je grupa sa najvećom
-vrijednošću. Na projektoru se prikaže postolje i graf HHI kroz svih 5 rundi, sa pragovima
-**1.000** i **2.000** — ista skala kao na slajdu: *„Za 6 minuta tržište je otišlo od
-konkurencije do monopola — rast je uvijek vodio ka sve većoj koncentraciji.“*
-
----
-
-## 4. Admin ekran (`/screen`)
+Aktivni ugovori se prenose kroz kasnija spajanja. Unutrašnji ugovor iste grupe se gasi, a grupa s više vanjskih ugovora zadržava onaj s najmanjom naknadom. Dopuštene su najviše tri istovremene izlazne ponude po grupi. Promjena vlasništva poništava stare neprihvaćene ponude koje su se oslanjale na raniji sastav firme, pa nije moguće istu firmu prodati dvaput. Preostale ponude ističu kada domaćin zaključi pregovore.
 
-Dugmad u donjoj traci:
-
-| Dugme | Šta radi |
-|---|---|
-| **POKRENI / DALJE** | pokreće igru / preskače trenutnu fazu |
-| **PAUZA** | zamrzava igru (i tajmer u R1) dok pričaš |
-| **+8 BOTOVA** | dodaje demo firme u lobiju (samo u lobiju) |
-| **NOVA IGRA** | resetuje rezultate, zadržava firme (za ponovno igranje iste grupe) |
-| **SAKRIJ** | sklanja admin traku sa projektora |
-
-Prečice na tastaturi: `Space` = dalje · `P` = pauza · `B` = botovi · `R` = nova igra ·
-`A` = sakrij traku · `F` = cijeli ekran.
-
-> Admin komande rade samo sa računara domaćina (telefoni ne mogu da upravljaju igrom).
-
----
-
-## 5. Ekonomija igre (za slajd / odbranu)
-
-Konstante su na vrhu `server.js`:
-
-| Parametar | Vrijednost |
-|---|---|
-| Početni kapital | 50 mil KM |
-| Ukupno kupaca | 10.000 |
-| Vrijednost kupca | 0,15 mil KM |
-| Pragovi HHI | 1.000 (konkurencija) / 2.000 (oligopol) |
-| HHI | `Σ (udio_grupe × 100)²` |
-
-HHI kroz tipičnu igru: **~330–500 → 1.000+ → 4.000–8.000 (monopol)**; poslije Komisije ostaje visoko ako najveća grupa ima većinu firmi.
-
----
-
-## 6. Za kodera (arhitektura)
-
-```
-server.js            — cijela igra: stanje, pravila, SSE, admin API, botovi (+ export za Vercel)
-api/                 — Vercel serverless varijanta iste igre (KV + polling)
-  _app.js            — zajednička logika: lock, lijeni tajmer, botovi, rute
-  _store.js          — Neon Postgres (DATABASE_URL) / Upstash Redis / memorija
-  state.js, join.js, act.js, admin.js, info.js, events.js, ping.js
-public/
-  index.html         — telefon: prijava + igra
-  screen.html        — projektor
-  common.js          — formatiranje, HTTP, SSE klijent + polling fallback
-  player.js          — ekrani po rundama (tap, cijena, investicija, spajanja, glasanje)
-  screen.js          — krug tržišta (SVG), HHI mjerač, rang lista, vijesti, finale
-  shared.css / screen.css / player.css
-tools/
-  test-flow.js       — end-to-end test bez browsera (radi za oba transporta)
-  serverless-dev.js  — lokalno pokretanje Vercel handlera (memorijsko skladište)
-  shots.ps1          — snimci ekrana za vizuelnu provjeru
-vercel.json          — statične stranice iz public/ + clean URL-ovi
-render.yaml          — Render Blueprint (pun Node server)
-```
-
-* Node.js 18+; jedina npm zavisnost je `@upstash/redis` (samo za Vercel varijantu).
-* Lokalno: **SSE** (`/api/events`) 3–4 puta u sekundi + `POST /api/act`.
-* Vercel: **polling** na ~0,8 s; stanje je u bazi (JSON + version), promjene su CAS,
-  a tajmer/botovi se izvršavaju lijeno na svakom zahtjevu.
-* Tajmer postoji samo u R1; ostale faze traju dok profesor ne klikne **DALJE**.
-* Botovi su serverski igrači sa istim pravilima (`isBot`), pa demo izgleda kao prava sala.
-* Test: `node tools/test-flow.js` (PORT=4000 lokalno, PORT=4200 za serverless-dev).
-
-### API (kratko)
-
-| Ruta | Opis |
-|---|---|
-| `POST /api/join` | `{name}` → `{token, id, name, color}` |
-| `GET /api/state?token=` | trenutno stanje za igrača (ili za ekran bez tokena) |
-| `GET /api/events` | SSE stream (lokalno) / `{transport:"poll"}` (Vercel) |
-| `POST /api/act` | `{token, type, ...}` — `tap`, `price`, `invest`, `offer`, `respond`, `vote` |
-| `POST /api/admin` | `{action, pin?}` — lokalno samo sa računara domaćina, na hostingu uz PIN |
-
----
-
-## 7. Ideje za proširenje (nije implementirano)
-
-* **Tajni kartel** — dvije firme se dogovore o visokim cijenama; ako Komisija otkrije, kazna.
-* **Iznenadni događaj** između rundi — kriza (−10% kapitala svima) ili ulazak stranog igrača.
-* **Veto Komisije** — profesor poništava jednu odluku sale.
-* **Asimetrične firme** — različiti početni kapitali ili troškovi („stara“ vs „nova“ firma).
-
----
-
-## 8. Snimci ekrana
-
-![Projektor — runda 4, spajanja](shots/11-round4.png)
-![Telefon — ponude za spajanje](shots/12-phone-merge.png)
-![Finale — HHI kroz igru](shots/17-final.png)
-![Analiza — kako je radilo](shots/19-analiza.png)
-
-Svi snimci (lobi, sve runde, rezultati, finale) su u folderu `shots/`.
-
----
-
-## 9. Scenarij za prezentaciju (2 minute prije + 6 minuta igre)
-
-1. **Uvod:** „Svako od vas je firma sa 50 miliona KM. Na tržištu je 10.000 kupaca. Cilj je
-   da na kraju imate najvredniju firmu — kapital plus kupci.“
-2. **R1:** pokaži krug podijeljen na 30 komada i zeleni HHI: „Ovo je konkurencija —
-   mnogo malih firmi, niko nema moć.“
-3. **R2:** poslije runde pročitaj ko je oborio cijenu: „Ovo je zatvorenikova dilema.
-   Niska cijena je isplativa pojedincu — dok je svi ne izaberu.“
-4. **R3:** otkrij inovacije: „Inovacija je rizik. Reklama je sigurna, ali skuplja po kupcu.“
-5. **R4:** Dok se spajaju, pričaj o rastu: „Svako spajanje donosi +12% kupaca grupi.
-   Veći postaje još veći — zato krug klizi ka jednom igraču.“
-6. **R5:** Komisija: „Kako kazniti firmu koja je prevelika? Ako je većina firmi u njoj,
-   Komisija nema kvorum — regulacija stiže prekasno.“
-7. **Finale:** graf HHI: „Za šest minuta prošli ste cijelu priču sa slajda: od konkurencije
-   do monopola. Rast je uvijek vodio ka sve većoj koncentraciji — a regulacija je stigla
-   tek kad je tržište već bilo zarobljeno.“
-8. **Analiza (dugme KAKO JE RADILO):** tri koraka sa brojevima iz upravo odigrane igre —
-   spajanje = +12% kupaca, koncentracija = HHI, regulacija = kazna koja ne vraća tržište.
-   Ovo je trenutak u kojem studenti sami izvode zaključak.
-
----
-
-## 10. Postavljanje na internet (hosting)
-
-Postoje **dvije varijante** iste igre:
-
-| Varijanta | Kako radi | Kada koristiti |
-|---|---|---|
-| **Lokalni server** | Node proces na tvom računaru, SSE, sve u memoriji | učionica, LAN, najbrže i najstabilnije |
-| **Vercel (serverless)** | statične stranice + `api/*` funkcije + Neon Postgres + polling | kada treba javni link, bez tvog računara |
-
-### A) Lokalno (učionica) — najstabilnije
-
-`start.bat`; telefoni na istu Wi-Fi. Detalji u poglavlju 1.
-
-### B) Vercel — već je deployovano
-
-**Uživo:** [https://trziste-uzivo.vercel.app/screen](https://trziste-uzivo.vercel.app/screen)
-· telefoni: [https://trziste-uzivo.vercel.app/](https://trziste-uzivo.vercel.app/)
-
-Projekat `trziste-uzivo` je povezan sa GitHub repoom, pa **svaki `git push` automatski
-redeployuje** sajt. Stanje igre je u **Neon Postgres** bazi (`DATABASE_URL`, već povezano
-kroz Vercel Storage), a klijenti koriste polling na ~0,8 s — Vercel serverless ne podržava
-SSE ni dugotrajne veze.
-
-Kako je podešeno (ako praviš ponovo):
-
-1. **Add New → Project** → uvezi repo `Integracije-igra` (Framework: **Other**;
-   Output Directory `public` je već u `vercel.json`).
-2. **Storage → Neon Postgres** → **Connect to project** (dodaje `DATABASE_URL` i `PG*`).
-   Tabela se sama kreira pri prvom zahtjevu (`CREATE TABLE IF NOT EXISTS`).
-3. **Deploy**. Projektor: `/screen` · telefoni: adresa sa ekrana (QR radi automatski).
-4. (opciono) env `ADMIN_PIN=1234` pa otvori `/screen?pin=1234` — zaštita admina.
-   Bez PIN-a admin ekran može otvoriti svako ko zna `/screen`.
-
-**Kako radi bez SSE:** stanje je jedan JSON u bazi sa `version` kolonom; svaka promjena je
-optimistički CAS (`UPDATE ... WHERE version = ?`), a tajmer i botovi se izvršavaju „lijeno“
-na svakom zahtjevu. Akcije vraćaju svježe stanje odmah, ostali igrači ga vide na sljedećem
-pollingu (do ~1 s).
-
-**Ograničenja (bitno za čas):**
-
-* Online varijanta je **do ~1 s sporija** od lokalne (polling + serverless).
-* Neon free plan i Vercel Hobby su dovoljni za povremene časove; za više razreda uzmi
-  plaćeni Neon (par dolara) ili igraj lokalno.
-* Region: Vercel `iad1`/najbliži; baza u istom regionu daje najmanji ping.
-* Ako Vercel prijavi „No Output Directory named public“, u Project Settings postavi
-  **Output Directory = `public`**.
-* Alternativno se može koristiti **Upstash Redis** umjesto Postgresa — dovoljno je postaviti
-  `KV_REST_API_URL` i `KV_REST_API_TOKEN` (ili `UPSTASH_REDIS_REST_URL/TOKEN`).
-
-### C) Render (alternativa — pun Node server)
-
-Ako ti treba **tačno lokalno ponašanje** (SSE, instant) ali javni link:
-
-1. [render.com](https://render.com) → **Sign up with GitHub**
-2. **New +** → **Blueprint** → izaberi repo `Integracije-igra` → **Apply** (`render.yaml`)
-3. Dobiješ `https://trziste-uzivo.onrender.com`; `PORT` i javna adresa se postavljaju sami.
-
-Free instanca spava poslije 15 min neaktivnosti (prvo otvaranje ~30 s).
-Isto radi na **Railway** i **Fly.io**: start `node server.js`, port iz `PORT`.
-Za custom domenu: `PUBLIC_URL=https://tvojdomen`.
-
-### Testiranje Vercel režima bez Vercela
-
-```bash
-node tools/serverless-dev.js     # http://127.0.0.1:4200 — iste API rute, memorijsko skladište
-```
-
----
+## Cijene, kupci i novac
 
+- Samo kontrolni vlasnik postavlja jednu cijenu: 30, 40, 50, 60, 80 ili 100 KM. Na telefonu vidi broj domaćinstava koji taj iznos može priuštiti. To nije garantovana prodaja: jeftiniji rival može osvojiti kupce.
+- 10.000 domaćinstava ima fiksne budžete: 1.000 po 30 KM, 1.500 po 40 KM, 1.500 po 50 KM, 2.000 po 60 KM, 2.500 po 80 KM i 1.500 po 100 KM.
+- Domaćinstva biraju najnižu pristupačnu cijenu. Kod iste cijene dijele se prema težini kupaca firmi; kod spajanja se težine sabiraju. Nema kapacitetskih ograničenja ili troška prelaska.
+- Ako vlasnik ne odabere cijenu, koristi se 50 KM i to se označava pri otkrivanju.
+- Profit = (cijena − operativni trošak − vanjska naknada za mrežu) × kupci, uz prihod od iznajmljivanja infrastrukture. Naknade su transfer između firmi, ne dodatni novac.
+- Profit se jednom po završenom poslovnom mjesecu isplaćuje članovima prema prihvaćenim udjelima, uz očuvanje svih centi. Finansijski rezultat = novac na kraju − početni novac. Ulaganje je stvarni trošak; gotovinske ponude prenose novac između firmi. Ulazak stranog operatera ne naplaćuje se učesnicima.
+- Budžeti simuliranih kupaca odvojeni su od novca firmi. Učesnici pregovaraju kao vlasnici i ne popunjavaju potrošačku anketu.
+
+## Otvaranje tržišta i strani operater
+
+Nakon drugog poslovnog mjeseca domaćin najavi otvaranje tržišta. Strani operater ulazi s istim paketom za 40 KM, troškom 20 KM i težinom kupaca 1. Ulazak je dio scenarija ekonomske integracije: nema prikupljanja novca niti troška za učesnike.
+
+Postojeće domaće cijene i budžeti kupaca ostaju isti. Igra ponovo računa izbor kupaca, profit domaćih firmi i dostupnost interneta. Na telefonu se vidi i poređenje ličnog udjela u profitu. Ovaj prikaz ne isplaćuje dodatni profit i ne mijenja već zarađeni novac; služi poređenju prije i poslije ulaska. Ako su domaće firme već ponudile cijenu nižu od 40 KM, novi operater neće automatski osvojiti kupce.
+
+## Tehničke provjere i hosting
+
+`npm test` provjerava različite uloge, ulaganje, kontraponude, kontrolu, razrjeđivanje udjela, konkurentne ponude, ugovore i transfere novca, potrošačke budžete, bezuslovni ulazak stranog operatera bez naplate, obavezna imena i prezimena, čuvanje stanja, reset i botove.
+
+`npm run test:flow` provjerava cijeli tok na izolovanom serveru. Koristi `PORT` ili `BASE_URL`; provjera resetuje ciljnu salu i namijenjena je lokalnoj probi. Za lokalnu polling varijantu: `node tools/serverless-dev.js` (port 4200).
+
+Lokalno radi postojeći SSE transport, a na Vercelu polling i Neon/Redis skladište. QR kod se generiše lokalno. `ADMIN_PIN` se unosi u Kontrole ili preko `/screen?pin=...`. Za lokalni pristup telefonima može biti potrebna Windows firewall dozvola za privatnu mrežu.
+
+Format stanja je verzija 7. Stara igra nije kompatibilna i otvara novu salu. Ranija lokalna verzija sačuvana je u `.local-backup/before-negotiation-redesign/`. Promjene nisu objavljene na javnom hostingu dok se ne izvrši deployment.

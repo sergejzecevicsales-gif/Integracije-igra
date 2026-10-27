@@ -30,6 +30,7 @@ const ROUTES = {
   '/api/admin': 'admin',
   '/api/ping': 'ping',
   '/api/info': 'info',
+  '/api/qr': 'qr',
   '/api/events': 'events',
 };
 
